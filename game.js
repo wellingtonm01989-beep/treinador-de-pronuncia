@@ -414,8 +414,23 @@ function startPronunciationChallenge() {
     };
 
     recognition.onerror = (event) => {
-        console.error("Speech error", event);
+        console.error("Speech error:", event.error);
         stopListeningUI();
+        
+        // Show error to the user visually
+        const feedback = document.getElementById('feedback');
+        const feedbackIcon = document.getElementById('feedbackIcon');
+        const feedbackText = document.getElementById('feedbackText');
+        
+        feedback.className = 'feedback visible wrong';
+        feedbackIcon.textContent = '⚠️';
+        
+        let errorMsg = "Erro no microfone.";
+        if (event.error === 'not-allowed') errorMsg = "Permissão do microfone negada. Verifique as configurações do site.";
+        if (event.error === 'no-speech') errorMsg = "Nenhum som detectado. Fale mais perto do microfone.";
+        if (event.error === 'network') errorMsg = "Erro de rede ao usar o reconhecimento de voz do Google.";
+        
+        feedbackText.textContent = errorMsg;
     };
 
     recognition.onend = () => {
