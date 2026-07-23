@@ -399,9 +399,17 @@ function startPronunciationChallenge() {
     
     const btn = document.getElementById('btnMic');
     const indicator = document.getElementById('listeningIndicator');
+    const micText = document.querySelector('.mic-text');
+    
+    // Se já estiver ouvindo, forçamos a parada para avaliar o áudio
+    if (btn.classList.contains('listening')) {
+        try { recognition.stop(); } catch(e) {}
+        return;
+    }
     
     btn.classList.add('listening');
     indicator.style.display = 'block';
+    if (micText) micText.textContent = "Toque para parar";
     
     try {
         recognition.start();
@@ -427,7 +435,7 @@ function startPronunciationChallenge() {
         
         let errorMsg = "Erro no microfone.";
         if (event.error === 'not-allowed') errorMsg = "Permissão do microfone negada. Verifique as configurações do site.";
-        if (event.error === 'no-speech') errorMsg = "Nenhum som detectado. Fale mais perto do microfone.";
+        if (event.error === 'no-speech') errorMsg = "Nenhum som detectado. Fale mais alto ou perto do microfone.";
         if (event.error === 'network') errorMsg = "Erro de rede ao usar o reconhecimento de voz do Google.";
         
         feedbackText.textContent = errorMsg;
@@ -441,8 +449,11 @@ function startPronunciationChallenge() {
 function stopListeningUI() {
     const btn = document.getElementById('btnMic');
     const indicator = document.getElementById('listeningIndicator');
+    const micText = document.querySelector('.mic-text');
+    
     if (btn) btn.classList.remove('listening');
     if (indicator) indicator.style.display = 'none';
+    if (micText) micText.textContent = "Pressione e Fale";
 }
 
 function checkSpokenAnswer(spokenWord) {
