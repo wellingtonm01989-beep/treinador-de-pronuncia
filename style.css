@@ -625,42 +625,20 @@ body {
     gap: 8px;
 }
 
-.word-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-}
-
 .question-word {
     font-size: 3rem;
     font-weight: 800;
     color: var(--text-primary);
-}
-
-.speaker-btn {
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
-    font-size: 1.2rem;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: var(--transition);
-    color: var(--text-primary);
 }
 
-.speaker-btn:hover {
-    background: var(--accent-gradient);
-    border-color: transparent;
-    transform: scale(1.1);
-    box-shadow: 0 0 15px var(--accent-glow);
+.question-word:hover {
+    color: var(--accent-color);
+    text-shadow: 0 0 15px var(--accent-glow);
 }
 
-.speaker-btn:active {
+.question-word:active {
     transform: scale(0.95);
 }
 
