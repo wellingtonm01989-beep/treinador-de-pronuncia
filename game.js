@@ -404,20 +404,8 @@ function logDebug(msg, type = 'info') {
     }
 }
 
-if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true; // Auto-detect on the fly!
-    recognition.maxAlternatives = 1;
-}
-
-
 function startPronunciationChallenge() {
     if (isAnswered) return;
-    if (!recognition) {
-        alert("Seu navegador não suporta reconhecimento de voz (tente no Chrome ou Edge).");
-        return;
-    }
     
     const btn = document.getElementById('btnMic');
     const indicator = document.getElementById('listeningIndicator');
@@ -426,7 +414,9 @@ function startPronunciationChallenge() {
     // Se já estiver ouvindo, forçamos a parada para avaliar o áudio
     if (btn.classList.contains('listening')) {
         logDebug("Botão clicado para PARAR manualmente", "warning");
-        try { recognition.stop(); } catch(e) { logDebug("Erro no stop(): " + e.message, "error"); }
+        if (recognition) {
+            try { recognition.stop(); } catch(e) { logDebug("Erro no stop(): " + e.message, "error"); }
+        }
         stopListeningUI(); // Remove visual feedback immediately
         if (!isAnswered && lastInterimTranscript !== "") {
             logDebug("Avaliando lastInterimTranscript manual: " + lastInterimTranscript, "info");
@@ -437,6 +427,22 @@ function startPronunciationChallenge() {
     
     logDebug("Botão clicado para INICIAR. Limpando interim...", "info");
     lastInterimTranscript = "";
+    
+    if (!SpeechRecognition) {
+        alert("Seu navegador não suporta reconhecimento de voz (tente no Chrome ou Edge).");
+        return;
+    }
+    
+    // Força o descarte de qualquer instância presa anteriormente
+    if (recognition) {
+        try { recognition.abort(); } catch(e) {}
+    }
+    
+    // Cria uma nova instância limpa a cada tentativa
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
     
     btn.classList.add('listening');
     indicator.style.display = 'block';
@@ -522,8 +528,7 @@ function startPronunciationChallenge() {
         logDebug("API disparou: onend", "info");
         stopListeningUI();
         if (!isAnswered) {
-            logDebug("onend ocorreu, mas isAnswered=false. Exibindo mensagem de erro.", "warning");
-            // O microfone desligou mas nenhum resultado foi obtido
+            logDebug("onend ocorreu, mas isAnswered=false. Exibindo erro.", "warning");
             const feedback = document.getElementById('feedback');
             const feedbackIcon = document.getElementById('feedbackIcon');
             const feedbackText = document.getElementById('feedbackText');
