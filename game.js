@@ -444,6 +444,16 @@ function startPronunciationChallenge() {
 
     recognition.onend = () => {
         stopListeningUI();
+        if (!isAnswered) {
+            // O microfone desligou mas nenhum resultado foi obtido
+            const feedback = document.getElementById('feedback');
+            const feedbackIcon = document.getElementById('feedbackIcon');
+            const feedbackText = document.getElementById('feedbackText');
+            
+            feedback.className = 'feedback visible wrong';
+            feedbackIcon.textContent = '⚠️';
+            feedbackText.textContent = "Não entendi nada. Tente falar um pouco mais devagar e com clareza.";
+        }
     };
 }
 
