@@ -380,6 +380,22 @@ function showQuestion() {
     questionStartTime = Date.now();
 }
 
+function playWordSound() {
+    if (!questions || questions.length === 0) return;
+    const wordObj = questions[currentQuestion];
+    if (!wordObj) return;
+    
+    // Cancela qualquer fala anterior
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(wordObj.word);
+    utterance.lang = 'en-US';
+    // Velocidade ligeiramente reduzida para clareza da pronúncia (0.8 ou 0.9)
+    utterance.rate = 0.9; 
+    
+    window.speechSynthesis.speak(utterance);
+}
+
 // ===== SPEECH RECOGNITION =====
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
