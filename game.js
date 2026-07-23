@@ -404,6 +404,7 @@ function startPronunciationChallenge() {
     // Se já estiver ouvindo, forçamos a parada para avaliar o áudio
     if (btn.classList.contains('listening')) {
         try { recognition.stop(); } catch(e) {}
+        stopListeningUI(); // Remove visual feedback immediately
         return;
     }
     
