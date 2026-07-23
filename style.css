@@ -239,6 +239,10 @@ body {
     font-family: var(--font);
 }
 
+.menu-card-full {
+    grid-column: 1 / -1;
+}
+
 .menu-card::before {
     content: '';
     position: absolute;
@@ -608,6 +612,11 @@ body {
     animation: shake 0.5s ease-in-out;
 }
 
+.question-card.partial {
+    border-color: var(--warning);
+    box-shadow: 0 0 30px var(--warning-glow);
+}
+
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20% { transform: translateX(-10px); }
@@ -765,6 +774,11 @@ body {
 .feedback.wrong .feedback-content {
     background: rgba(239, 68, 68, 0.1);
     color: var(--danger);
+}
+
+.feedback.partial .feedback-content {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
 }
 
 .feedback-icon {
@@ -1224,5 +1238,63 @@ body {
         grid-template-columns: repeat(3, 1fr);
     }
 }
+}
 
+/* ===== APÊNDICE FONÉTICO ===== */
+.phoneme-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-top: 20px;
+}
 
+.phoneme-category {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+}
+
+.phoneme-category h3 {
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+    color: var(--accent-solid);
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 8px;
+}
+
+.phoneme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.phoneme-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.phoneme-card:hover {
+    border-color: var(--accent-solid);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-glow);
+}
+
+.phoneme-symbol {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.phoneme-example {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}

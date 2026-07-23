@@ -564,15 +564,19 @@ function checkSpokenAnswer(spokenWord) {
     const wordObj = questions[currentQuestion];
     const correctWord = wordObj.word.toLowerCase();
     
-    // Very simple check
-    const isCorrect = spokenWord === correctWord;
+    // Similarity check
+    const similarity = getSimilarity(spokenWord, correctWord);
     const timeTaken = (Date.now() - questionStartTime) / 1000;
     
     questionTimes.push(timeTaken);
     
     // Update progress
     const key = wordObj.id;
-    if (isCorrect) {
+    let isCorrect = false;
+    let isPartial = false;
+
+    if (similarity >= 0.85) {
+        isCorrect = true;
         state.progress[key].correct++;
         state.progress[key].streak++;
         const p = state.progress[key];
@@ -581,6 +585,9 @@ function checkSpokenAnswer(spokenWord) {
         streak++;
         if (streak > maxStreak) maxStreak = streak;
         if (streak > state.bestStreak) state.bestStreak = streak;
+    } else if (similarity >= 0.55) {
+        isPartial = true;
+        // Não incrementa nem zera streaks
     } else {
         state.progress[key].wrong++;
         state.progress[key].streak = 0;
@@ -595,7 +602,9 @@ function checkSpokenAnswer(spokenWord) {
         if (isCorrect && timeTaken < 2.0) {
             timeModifier = 1.0;
             timeLeft += timeModifier;
-        } else if (!isCorrect) {
+        } else if (isPartial) {
+            timeModifier = 0;
+        } else if (!isCorrect && !isPartial) {
             timeModifier = -2.0;
             timeLeft += timeModifier;
         }
@@ -613,16 +622,28 @@ function checkSpokenAnswer(spokenWord) {
     const feedbackIcon = document.getElementById('feedbackIcon');
     const feedbackText = document.getElementById('feedbackText');
     
-    card.classList.add(isCorrect ? 'correct' : 'wrong');
-    feedback.className = 'feedback visible ' + (isCorrect ? 'correct' : 'wrong');
+    card.classList.remove('correct', 'wrong', 'partial');
+    feedback.className = 'feedback visible';
     
     if (isCorrect) {
+        card.classList.add('correct');
+        feedback.classList.add('correct');
         feedbackIcon.textContent = '✓';
         feedbackText.textContent = getCorrectMessage(timeTaken, streak);
         const { xp, isCrit } = calculateQuestionXP(timeTaken, streak);
         currentGameXP += xp;
         showXPPopup(xp, isCrit);
+    } else if (isPartial) {
+        card.classList.add('partial');
+        feedback.classList.add('partial');
+        feedbackIcon.textContent = '⚠️';
+        feedbackText.textContent = `Quase lá! Você disse "${spokenWord}" e o correto é "${correctWord}".`;
+        const xp = 5;
+        currentGameXP += xp;
+        showXPPopup(xp, false);
     } else {
+        card.classList.add('wrong');
+        feedback.classList.add('wrong');
         feedbackIcon.textContent = '✗';
         if (spokenWord === '') {
             feedbackText.textContent = `Nenhum som detectado. O correto é "${correctWord}".`;
@@ -913,6 +934,102 @@ function launchConfetti() {
         
         document.body.appendChild(confetti);
     }
+}
+
+// ===== APÊNDICE FONÉTICO E SIMILARIDADE =====
+
+function getSimilarity(s1, s2) {
+    let costs = new Array();
+    for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+            if (i == 0)
+                costs[j] = j;
+            else {
+                if (j > 0) {
+                    let newValue = costs[j - 1];
+                    if (s1.charAt(i - 1) != s2.charAt(j - 1))
+                        newValue = Math.min(Math.min(newValue, lastValue),
+                            costs[j]) + 1;
+                    costs[j - 1] = lastValue;
+                    lastValue = newValue;
+                }
+            }
+        }
+        if (i > 0)
+            costs[s2.length] = lastValue;
+    }
+    const maxLen = Math.max(s1.length, s2.length);
+    if (maxLen === 0) return 1.0;
+    return (maxLen - costs[s2.length]) / maxLen;
+}
+
+const phonemesData = [
+    { category: "Vogais Longas", symbol: "iː", example: "see", word: "see" },
+    { category: "Vogais Longas", symbol: "uː", example: "too", word: "too" },
+    { category: "Vogais Longas", symbol: "ɑː", example: "father", word: "father" },
+    { category: "Vogais Curtas", symbol: "ɪ", example: "sit", word: "sit" },
+    { category: "Vogais Curtas", symbol: "ʊ", example: "book", word: "book" },
+    { category: "Vogais Curtas", symbol: "æ", example: "cat", word: "cat" },
+    { category: "Consoantes Complexas", symbol: "θ", example: "think", word: "think" },
+    { category: "Consoantes Complexas", symbol: "ð", example: "this", word: "this" },
+    { category: "Consoantes Complexas", symbol: "ʃ", example: "she", word: "she" },
+    { category: "Consoantes Complexas", symbol: "tʃ", example: "cheese", word: "cheese" }
+];
+
+function renderAppendix() {
+    const container = document.getElementById('phonemeContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const categories = [...new Set(phonemesData.map(p => p.category))];
+
+    categories.forEach(cat => {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'phoneme-category';
+
+        const title = document.createElement('h3');
+        title.textContent = cat;
+        catDiv.appendChild(title);
+
+        const grid = document.createElement('div');
+        grid.className = 'phoneme-grid';
+
+        const phonemes = phonemesData.filter(p => p.category === cat);
+        phonemes.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'phoneme-card';
+            card.onclick = () => playPhoneme(p.word);
+
+            const sym = document.createElement('span');
+            sym.className = 'phoneme-symbol';
+            sym.textContent = p.symbol;
+
+            const ex = document.createElement('span');
+            ex.className = 'phoneme-example';
+            ex.textContent = p.example;
+
+            card.appendChild(sym);
+            card.appendChild(ex);
+            grid.appendChild(card);
+        });
+
+        catDiv.appendChild(grid);
+        container.appendChild(catDiv);
+    });
+}
+
+function openAppendix() {
+    renderAppendix();
+    showScreen('appendixScreen');
+}
+
+function playPhoneme(word) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.7; // Lento para foco
+    window.speechSynthesis.speak(utterance);
 }
 
 // ===== INITIALIZE =====
