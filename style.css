@@ -1201,3 +1201,23 @@ body {
         grid-template-columns: repeat(3, 1fr);
     }
 }
+
+/* ===== DEBUG CONSOLE ===== */
+.debug-console {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 150px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #0f0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 10px;
+    overflow-y: auto;
+    z-index: 9999;
+    border-top: 2px solid #0f0;
+}
+.debug-line { margin-bottom: 4px; line-height: 1.2; word-wrap: break-word; }
+.debug-error { color: #f00; font-weight: bold; }
+.debug-info { color: #0ff; }

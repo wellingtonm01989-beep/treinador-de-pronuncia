@@ -385,12 +385,32 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognition = null;
 let lastInterimTranscript = "";
 
+function logDebug(msg, type = 'info') {
+    const consoleDiv = document.getElementById('debugConsole');
+    if (consoleDiv) {
+        consoleDiv.style.display = 'block';
+        const line = document.createElement('div');
+        line.className = `debug-line debug-${type}`;
+        
+        const now = new Date();
+        const time = now.getHours().toString().padStart(2, '0') + ':' + 
+                     now.getMinutes().toString().padStart(2, '0') + ':' + 
+                     now.getSeconds().toString().padStart(2, '0') + '.' + 
+                     now.getMilliseconds().toString().padStart(3, '0');
+                     
+        line.textContent = `[${time}] ${msg}`;
+        consoleDiv.appendChild(line);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+}
+
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
     recognition.interimResults = true; // Auto-detect on the fly!
     recognition.maxAlternatives = 1;
 }
+
 
 function startPronunciationChallenge() {
     if (isAnswered) return;
@@ -405,14 +425,17 @@ function startPronunciationChallenge() {
     
     // Se já estiver ouvindo, forçamos a parada para avaliar o áudio
     if (btn.classList.contains('listening')) {
-        try { recognition.stop(); } catch(e) {}
+        logDebug("Botão clicado para PARAR manualmente", "warning");
+        try { recognition.stop(); } catch(e) { logDebug("Erro no stop(): " + e.message, "error"); }
         stopListeningUI(); // Remove visual feedback immediately
         if (!isAnswered && lastInterimTranscript !== "") {
+            logDebug("Avaliando lastInterimTranscript manual: " + lastInterimTranscript, "info");
             checkSpokenAnswer(lastInterimTranscript);
         }
         return;
     }
     
+    logDebug("Botão clicado para INICIAR. Limpando interim...", "info");
     lastInterimTranscript = "";
     
     btn.classList.add('listening');
@@ -421,9 +444,22 @@ function startPronunciationChallenge() {
     
     try {
         recognition.start();
-    } catch(e) {} // Ignore if already started
+        logDebug("recognition.start() chamado com sucesso", "success");
+    } catch(e) { 
+        logDebug("Exceção ao chamar recognition.start(): " + e.message, "error");
+    }
+
+    recognition.onstart = () => logDebug("API disparou: onstart", "info");
+    recognition.onaudiostart = () => logDebug("API disparou: onaudiostart", "info");
+    recognition.onsoundstart = () => logDebug("API disparou: onsoundstart", "info");
+    recognition.onspeechstart = () => logDebug("API disparou: onspeechstart", "info");
+    recognition.onspeechend = () => logDebug("API disparou: onspeechend", "info");
+    recognition.onsoundend = () => logDebug("API disparou: onsoundend", "info");
+    recognition.onaudioend = () => logDebug("API disparou: onaudioend", "info");
+    recognition.onnomatch = () => logDebug("API disparou: onnomatch", "warning");
 
     recognition.onresult = (event) => {
+        logDebug(`API disparou: onresult (qtd resultados: ${event.results.length})`, "info");
         if (isAnswered) return;
         
         const wordObj = questions[currentQuestion];
@@ -462,6 +498,7 @@ function startPronunciationChallenge() {
     };
 
     recognition.onerror = (event) => {
+        logDebug("API disparou: onerror -> " + event.error, "error");
         console.error("Speech error:", event.error);
         stopListeningUI();
         
@@ -482,8 +519,10 @@ function startPronunciationChallenge() {
     };
 
     recognition.onend = () => {
+        logDebug("API disparou: onend", "info");
         stopListeningUI();
         if (!isAnswered) {
+            logDebug("onend ocorreu, mas isAnswered=false. Exibindo mensagem de erro.", "warning");
             // O microfone desligou mas nenhum resultado foi obtido
             const feedback = document.getElementById('feedback');
             const feedbackIcon = document.getElementById('feedbackIcon');
