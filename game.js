@@ -386,22 +386,12 @@ let recognition = null;
 let lastInterimTranscript = "";
 
 function logDebug(msg, type = 'info') {
-    const consoleDiv = document.getElementById('debugConsole');
-    if (consoleDiv) {
-        consoleDiv.style.display = 'block';
-        const line = document.createElement('div');
-        line.className = `debug-line debug-${type}`;
-        
-        const now = new Date();
-        const time = now.getHours().toString().padStart(2, '0') + ':' + 
-                     now.getMinutes().toString().padStart(2, '0') + ':' + 
-                     now.getSeconds().toString().padStart(2, '0') + '.' + 
-                     now.getMilliseconds().toString().padStart(3, '0');
-                     
-        line.textContent = `[${time}] ${msg}`;
-        consoleDiv.appendChild(line);
-        consoleDiv.scrollTop = consoleDiv.scrollHeight;
-    }
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2, '0') + ':' + 
+                 now.getMinutes().toString().padStart(2, '0') + ':' + 
+                 now.getSeconds().toString().padStart(2, '0') + '.' + 
+                 now.getMilliseconds().toString().padStart(3, '0');
+    console.log(`[${time}] [${type.toUpperCase()}] ${msg}`);
 }
 
 function startPronunciationChallenge() {
