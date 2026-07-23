@@ -383,10 +383,12 @@ function showQuestion() {
 // ===== SPEECH RECOGNITION =====
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
+let lastInterimTranscript = "";
+
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
-    recognition.interimResults = false;
+    recognition.interimResults = true; // Auto-detect on the fly!
     recognition.maxAlternatives = 1;
 }
 
@@ -405,8 +407,13 @@ function startPronunciationChallenge() {
     if (btn.classList.contains('listening')) {
         try { recognition.stop(); } catch(e) {}
         stopListeningUI(); // Remove visual feedback immediately
+        if (!isAnswered && lastInterimTranscript !== "") {
+            checkSpokenAnswer(lastInterimTranscript);
+        }
         return;
     }
+    
+    lastInterimTranscript = "";
     
     btn.classList.add('listening');
     indicator.style.display = 'block';
@@ -417,9 +424,41 @@ function startPronunciationChallenge() {
     } catch(e) {} // Ignore if already started
 
     recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase().trim();
-        const spokenWord = transcript.replace(/[.,!?]/g, "");
-        checkSpokenAnswer(spokenWord);
+        if (isAnswered) return;
+        
+        const wordObj = questions[currentQuestion];
+        const correctWord = wordObj.word.toLowerCase();
+        
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript.toLowerCase().trim().replace(/[.,!?]/g, "");
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript + " ";
+            } else {
+                interimTranscript += transcript + " ";
+            }
+        }
+        
+        finalTranscript = finalTranscript.trim();
+        interimTranscript = interimTranscript.trim();
+        if (interimTranscript) lastInterimTranscript = interimTranscript;
+        
+        const interimWords = interimTranscript.split(' ');
+        const finalWords = finalTranscript.split(' ');
+        
+        // Auto-stop if the correct word is detected magically in real-time
+        if (interimWords.includes(correctWord) || finalWords.includes(correctWord)) {
+            checkSpokenAnswer(correctWord);
+            try { recognition.stop(); } catch(e) {}
+            return;
+        }
+        
+        if (finalTranscript !== '') {
+            checkSpokenAnswer(finalTranscript);
+            try { recognition.stop(); } catch(e) {}
+        }
     };
 
     recognition.onerror = (event) => {
