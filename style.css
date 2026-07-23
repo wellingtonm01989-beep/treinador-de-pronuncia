@@ -631,6 +631,13 @@ body {
     color: var(--text-primary);
     cursor: pointer;
     transition: var(--transition);
+    
+    /* Previne a seleção acidental de texto no celular ao clicar */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .question-word:hover {
