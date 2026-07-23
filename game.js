@@ -16,6 +16,7 @@ let timerInterval = null;
 let timeLeft = 60;
 let isAnswered = false;
 let currentGameXP = 0;
+let currentAttempts = 0;
 
 // ===== INITIALIZATION =====
 function loadState() {
@@ -181,6 +182,9 @@ function startMode(mode) {
             selectedTables.push(i);
         }
         startGame();
+    } else if (mode === 'phonetics') {
+        selectedTables = ['phonetics'];
+        startGame();
     } else {
         showScreen('selectScreen');
     }
@@ -242,6 +246,11 @@ function updateStartButton() {
 function generateQuestions() {
     questions = [];
     
+    if (gameMode === 'phonetics') {
+        questions = shuffle([...phonemesDatabase]);
+        return;
+    }
+
     // Filter words by selected batches
     const availableWords = englishDatabase.filter(w => selectedTables.includes(w.batch));
 
@@ -334,6 +343,9 @@ function startGame() {
         timerBar.classList.add('active');
         timeLeft = 60;
         updateTimerBar();
+    } else if (gameMode === 'phonetics') {
+        modeLabel.textContent = '🗣️ Fonética';
+        timerBar.classList.remove('active');
     } else {
         modeLabel.textContent = '🏆 Maratona';
         timerBar.classList.remove('active');
@@ -353,9 +365,22 @@ function showQuestion() {
         return;
     }
 
+    currentAttempts = 0;
     const wordObj = questions[currentQuestion];
-    document.getElementById('questionWord').textContent = wordObj.word;
-    document.getElementById('questionTranslation').textContent = wordObj.translation;
+    const phoneticEl = document.getElementById('questionPhonetic');
+
+    if (gameMode === 'phonetics') {
+        document.getElementById('questionWord').textContent = wordObj.symbol;
+        if (phoneticEl) phoneticEl.style.display = 'none';
+        document.getElementById('questionTranslation').textContent = "Exemplo: " + wordObj.word;
+    } else {
+        document.getElementById('questionWord').textContent = wordObj.word;
+        if (phoneticEl) {
+            phoneticEl.style.display = 'inline';
+            phoneticEl.textContent = wordObj.phonetic || '';
+        }
+        document.getElementById('questionTranslation').textContent = wordObj.translation;
+    }
 
     const total = gameMode === 'challenge' ? '∞' : questions.length;
     document.getElementById('gameCounter').textContent = `${currentQuestion + 1} / ${total}`;
@@ -577,20 +602,31 @@ function checkSpokenAnswer(spokenWord) {
 
     if (similarity >= 0.85) {
         isCorrect = true;
-        state.progress[key].correct++;
-        state.progress[key].streak++;
-        const p = state.progress[key];
-        p.avgTime = p.avgTime === 0 ? timeTaken : (p.avgTime * 0.7 + timeTaken * 0.3);
+        if (state.progress[key]) {
+            state.progress[key].correct++;
+            state.progress[key].streak++;
+            const p = state.progress[key];
+            p.avgTime = p.avgTime === 0 ? timeTaken : (p.avgTime * 0.7 + timeTaken * 0.3);
+        }
         score++;
         streak++;
         if (streak > maxStreak) maxStreak = streak;
         if (streak > state.bestStreak) state.bestStreak = streak;
     } else if (similarity >= 0.55) {
         isPartial = true;
-        // Não incrementa nem zera streaks
-    } else {
-        state.progress[key].wrong++;
-        state.progress[key].streak = 0;
+    }
+
+    if (!isCorrect) {
+        currentAttempts++;
+    }
+
+    let isFailed = (!isCorrect && currentAttempts >= 3);
+
+    if (isFailed) {
+        if (state.progress[key]) {
+            state.progress[key].wrong++;
+            state.progress[key].streak = 0;
+        }
         mistakes.push({ word: correctWord, yourAnswer: spokenWord });
         streak = 0;
     }
@@ -633,27 +669,31 @@ function checkSpokenAnswer(spokenWord) {
         const { xp, isCrit } = calculateQuestionXP(timeTaken, streak);
         currentGameXP += xp;
         showXPPopup(xp, isCrit);
-    } else if (isPartial) {
+    } else if (isPartial && !isFailed) {
         card.classList.add('partial');
         feedback.classList.add('partial');
         feedbackIcon.textContent = '⚠️';
-        feedbackText.textContent = `Quase lá! Você disse "${spokenWord}" e o correto é "${correctWord}".`;
-        const xp = 5;
-        currentGameXP += xp;
-        showXPPopup(xp, false);
+        feedbackText.textContent = `Tentativa ${currentAttempts}/3: Quase lá! Você disse "${spokenWord}".`;
+    } else if (!isFailed) {
+        card.classList.add('wrong');
+        feedback.classList.add('wrong');
+        feedbackIcon.textContent = '✗';
+        feedbackText.textContent = `Tentativa ${currentAttempts}/3: Tente de novo!`;
     } else {
         card.classList.add('wrong');
         feedback.classList.add('wrong');
         feedbackIcon.textContent = '✗';
-        if (spokenWord === '') {
-            feedbackText.textContent = `Nenhum som detectado. O correto é "${correctWord}".`;
-        } else {
-            feedbackText.textContent = `Você disse "${spokenWord}". O correto é "${correctWord}".`;
-        }
+        feedbackText.textContent = `Acabaram as tentativas! O correto é "${correctWord}".`;
     }
     
     setTimeout(() => {
-        if (isAnswered) nextQuestion();
+        if (isCorrect || isFailed) {
+            if (isAnswered) nextQuestion();
+        } else {
+            isAnswered = false;
+            card.classList.remove('wrong', 'partial');
+            feedback.classList.remove('visible');
+        }
     }, isCorrect ? 1000 : 2500);
 }
 

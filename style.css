@@ -663,6 +663,13 @@ body {
     transform: scale(0.95);
 }
 
+.question-phonetic {
+    font-family: var(--font-mono);
+    color: var(--accent-solid);
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+}
+
 .question-translation {
     font-size: 1.2rem;
     color: var(--text-secondary);
@@ -1237,7 +1244,6 @@ body {
     .table-selector {
         grid-template-columns: repeat(3, 1fr);
     }
-}
 }
 
 /* ===== APÊNDICE FONÉTICO ===== */

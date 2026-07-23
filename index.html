@@ -68,10 +68,10 @@
                     <h3>Progresso</h3>
                     <p>Veja sua evolução</p>
                 </button>
-                <button class="menu-card menu-card-full" id="btnAppendix" onclick="openAppendix()">
+                <button class="menu-card menu-card-full" id="btnPhonetics" onclick="startMode('phonetics')">
                     <div class="card-icon">🗣️</div>
-                    <h3>Apêndice Fonético</h3>
-                    <p>Estude os fonemas (IPA)</p>
+                    <h3>Modo Fonética</h3>
+                    <p>Jogue e estude os fonemas (IPA)</p>
                 </button>
             </div>
         </section>
@@ -126,6 +126,7 @@
             <div class="question-card" id="questionCard">
                 <div class="question-content word-content">
                     <span class="question-word" id="questionWord" onclick="playWordSound()" title="Toque para ouvir">Hello</span>
+                    <span class="question-phonetic" id="questionPhonetic"></span>
                     <span class="question-translation" id="questionTranslation">Olá</span>
                 </div>
             </div>
