@@ -428,22 +428,29 @@ function playWordSound() {
         textToSpeak = phonemeSounds[wordObj.word] || wordObj.symbol.replace(/\//g, '');
     }
     
-    // Usa a API do Google Translate TTS (alta qualidade, sem voz robótica do Windows)
+    // Usa a API do Google Translate TTS
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en-US&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
-    
     const audio = new Audio(url);
-    audio.play().catch(e => {
-        logDebug("Erro ao tocar áudio da API, usando fallback (SpeechSynthesis): " + e.message, "error");
-        
-        // Fallback caso falhe a internet
-        window.speechSynthesis.cancel();
-        setTimeout(() => {
+    
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(e => {
+            logDebug("Erro ao tocar áudio da API, usando fallback: " + e.message, "error");
+            window.speechSynthesis.cancel();
+            
             const utterance = new SpeechSynthesisUtterance(textToSpeak);
             utterance.lang = 'en-US';
             utterance.rate = 0.9; 
-            window.speechSynthesis.speak(utterance);
-        }, 50); // Timeout resolve o bug de atraso na segunda tentativa do motor do windows
-    });
+            
+            // Em dispositivos móveis, o setTimeout bloqueia a fala. No PC, ele previne o bug do Windows.
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.speechSynthesis.speak(utterance);
+            } else {
+                setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+            }
+        });
+    }
 }
 
 // ===== SPEECH RECOGNITION =====
@@ -467,7 +474,7 @@ function startPronunciationChallenge(e) {
     const btn = document.getElementById('btnMic');
     const indicator = document.getElementById('listeningIndicator');
     
-    logDebug("Botão PRESSIONADO. Iniciando PTT...", "info");
+    logDebug("Botão CLICADO. Iniciando gravação...", "info");
     lastInterimTranscript = "";
     
     if (!SpeechRecognition) {
@@ -538,26 +545,24 @@ function startPronunciationChallenge(e) {
 
     recognition.onend = () => {
         stopListeningUI();
+        setTimeout(() => {
+            if (!isAnswered) {
+                if (lastInterimTranscript !== "") {
+                    checkSpokenAnswer(lastInterimTranscript, 0.5);
+                } else {
+                    handleFailedAttempt("Nenhum som captado.");
+                }
+            }
+        }, 400);
     };
 }
 
 function stopPronunciationChallenge(e) {
     if (e && e.cancelable) e.preventDefault();
     if (!recognition) return;
-    logDebug("Botão SOLTO. Parando PTT...", "info");
+    logDebug("Parando gravação manualmente...", "info");
     
     try { recognition.stop(); } catch(e) {}
-    stopListeningUI();
-    
-    setTimeout(() => {
-        if (!isAnswered) {
-            if (lastInterimTranscript !== "") {
-                checkSpokenAnswer(lastInterimTranscript, 0.5);
-            } else {
-                handleFailedAttempt("Nenhum som captado enquanto segurava o botão.");
-            }
-        }
-    }, 400);
 }
 
 function handleFailedAttempt(errorMsg) {
@@ -621,7 +626,7 @@ function stopListeningUI() {
     
     if (btn) btn.classList.remove('listening');
     if (indicator) indicator.style.display = 'none';
-    if (micText) micText.textContent = "Pressione e Fale";
+    if (micText) micText.textContent = "Clique para Falar";
 }
 
 function checkSpokenAnswer(spokenWord, confidence = 1.0) {
@@ -1138,16 +1143,24 @@ function playPhoneme(word) {
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en-US&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
     const audio = new Audio(url);
     
-    audio.play().catch(e => {
-        console.log("Erro ao tocar áudio da API, usando fallback:", e);
-        window.speechSynthesis.cancel();
-        setTimeout(() => {
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(e => {
+            console.log("Erro ao tocar áudio da API, usando fallback:", e);
+            window.speechSynthesis.cancel();
+            
             const utterance = new SpeechSynthesisUtterance(textToSpeak);
             utterance.lang = 'en-US';
             utterance.rate = 0.7; 
-            window.speechSynthesis.speak(utterance);
-        }, 50);
-    });
+            
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                window.speechSynthesis.speak(utterance);
+            } else {
+                setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+            }
+        });
+    }
 }
 
 // ===== INITIALIZE =====
@@ -1158,17 +1171,12 @@ window.onload = () => {
     
     const btnMic = document.getElementById('btnMic');
     if (btnMic) {
-        btnMic.addEventListener('mousedown', startPronunciationChallenge);
-        btnMic.addEventListener('touchstart', startPronunciationChallenge, {passive: false});
-        
-        const stopPTT = (e) => {
+        btnMic.addEventListener('click', (e) => {
             if (btnMic.classList.contains('listening')) {
                 stopPronunciationChallenge(e);
+            } else {
+                startPronunciationChallenge(e);
             }
-        };
-        
-        btnMic.addEventListener('mouseup', stopPTT);
-        btnMic.addEventListener('mouseleave', stopPTT);
-        btnMic.addEventListener('touchend', stopPTT, {passive: false});
+        });
     }
 };
