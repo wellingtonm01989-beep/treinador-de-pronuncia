@@ -408,14 +408,18 @@ function showQuestion() {
 function playWordSound() {
     if (!questions || questions.length === 0) return;
     const wordObj = questions[currentQuestion];
-    if (!wordObj) return;
+    
+    if (gameMode === 'phonetics' && wordObj.audio) {
+        const audio = new Audio(`audios/${wordObj.audio}.mp3`);
+        audio.play().catch(e => logDebug("Erro ao tocar áudio: " + e.message, "error"));
+        return;
+    }
     
     // Cancela qualquer fala anterior
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(wordObj.word);
     utterance.lang = 'en-US';
-    // Velocidade ligeiramente reduzida para clareza da pronúncia (0.8 ou 0.9)
     utterance.rate = 0.9; 
     
     window.speechSynthesis.speak(utterance);
@@ -435,28 +439,14 @@ function logDebug(msg, type = 'info') {
     console.log(`[${time}] [${type.toUpperCase()}] ${msg}`);
 }
 
-function startPronunciationChallenge() {
+function startPronunciationChallenge(e) {
+    if (e && e.cancelable) e.preventDefault();
     if (isAnswered) return;
     
     const btn = document.getElementById('btnMic');
     const indicator = document.getElementById('listeningIndicator');
-    const micText = document.querySelector('.mic-text');
     
-    // Se já estiver ouvindo, forçamos a parada para avaliar o áudio
-    if (btn.classList.contains('listening')) {
-        logDebug("Botão clicado para PARAR manualmente", "warning");
-        if (recognition) {
-            try { recognition.stop(); } catch(e) { logDebug("Erro no stop(): " + e.message, "error"); }
-        }
-        stopListeningUI(); // Remove visual feedback immediately
-        if (!isAnswered && lastInterimTranscript !== "") {
-            logDebug("Avaliando lastInterimTranscript manual: " + lastInterimTranscript, "info");
-            checkSpokenAnswer(lastInterimTranscript);
-        }
-        return;
-    }
-    
-    logDebug("Botão clicado para INICIAR. Limpando interim...", "info");
+    logDebug("Botão PRESSIONADO. Iniciando PTT...", "info");
     lastInterimTranscript = "";
     
     if (!SpeechRecognition) {
@@ -464,12 +454,10 @@ function startPronunciationChallenge() {
         return;
     }
     
-    // Força o descarte de qualquer instância presa anteriormente
     if (recognition) {
         try { recognition.abort(); } catch(e) {}
     }
     
-    // Cria uma nova instância limpa a cada tentativa
     recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
@@ -477,36 +465,26 @@ function startPronunciationChallenge() {
     
     btn.classList.add('listening');
     indicator.style.display = 'block';
-    if (micText) micText.textContent = "Toque para parar";
     
     try {
         recognition.start();
-        logDebug("recognition.start() chamado com sucesso", "success");
-    } catch(e) { 
-        logDebug("Exceção ao chamar recognition.start(): " + e.message, "error");
-    }
-
-    recognition.onstart = () => logDebug("API disparou: onstart", "info");
-    recognition.onaudiostart = () => logDebug("API disparou: onaudiostart", "info");
-    recognition.onsoundstart = () => logDebug("API disparou: onsoundstart", "info");
-    recognition.onspeechstart = () => logDebug("API disparou: onspeechstart", "info");
-    recognition.onspeechend = () => logDebug("API disparou: onspeechend", "info");
-    recognition.onsoundend = () => logDebug("API disparou: onsoundend", "info");
-    recognition.onaudioend = () => logDebug("API disparou: onaudioend", "info");
-    recognition.onnomatch = () => logDebug("API disparou: onnomatch", "warning");
+    } catch(e) {}
 
     recognition.onresult = (event) => {
-        logDebug(`API disparou: onresult (qtd resultados: ${event.results.length})`, "info");
         if (isAnswered) return;
-        
-        const wordObj = questions[currentQuestion];
-        const correctWord = wordObj.word.toLowerCase();
         
         let finalTranscript = '';
         let interimTranscript = '';
+        let highestConfidence = 0;
         
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            const transcript = event.results[i][0].transcript.toLowerCase().trim().replace(/[.,!?]/g, "");
+            const result = event.results[i][0];
+            const transcript = result.transcript.toLowerCase().trim().replace(/[.,!?]/g, "");
+            
+            if (result.confidence > highestConfidence) {
+                highestConfidence = result.confidence;
+            }
+
             if (event.results[i].isFinal) {
                 finalTranscript += transcript + " ";
             } else {
@@ -518,57 +496,101 @@ function startPronunciationChallenge() {
         interimTranscript = interimTranscript.trim();
         if (interimTranscript) lastInterimTranscript = interimTranscript;
         
-        const interimWords = interimTranscript.split(' ');
-        const finalWords = finalTranscript.split(' ');
-        
-        // Auto-stop if the correct word is detected magically in real-time
-        if (interimWords.includes(correctWord) || finalWords.includes(correctWord)) {
-            checkSpokenAnswer(correctWord);
-            try { recognition.stop(); } catch(e) {}
-            return;
-        }
-        
         if (finalTranscript !== '') {
-            checkSpokenAnswer(finalTranscript);
-            try { recognition.stop(); } catch(e) {}
+            checkSpokenAnswer(finalTranscript, highestConfidence);
         }
     };
 
     recognition.onerror = (event) => {
-        logDebug("API disparou: onerror -> " + event.error, "error");
-        console.error("Speech error:", event.error);
         stopListeningUI();
-        
-        // Show error to the user visually
-        const feedback = document.getElementById('feedback');
-        const feedbackIcon = document.getElementById('feedbackIcon');
-        const feedbackText = document.getElementById('feedbackText');
-        
-        feedback.className = 'feedback visible wrong';
-        feedbackIcon.textContent = '⚠️';
-        
         let errorMsg = "Erro no microfone.";
-        if (event.error === 'not-allowed') errorMsg = "Permissão do microfone negada. Verifique as configurações do site.";
-        if (event.error === 'no-speech') errorMsg = "Nenhum som detectado. Fale mais alto ou perto do microfone.";
-        if (event.error === 'network') errorMsg = "Erro de rede ao usar o reconhecimento de voz do Google.";
+        if (event.error === 'not-allowed') errorMsg = "Permissão negada.";
+        if (event.error === 'no-speech') errorMsg = "Nenhum som detectado.";
         
-        feedbackText.textContent = errorMsg;
+        if (event.error === 'no-speech' || event.error === 'network') {
+            handleFailedAttempt(errorMsg);
+        } else {
+            const feedbackText = document.getElementById('feedbackText');
+            if (feedbackText) feedbackText.textContent = errorMsg;
+        }
     };
 
     recognition.onend = () => {
-        logDebug("API disparou: onend", "info");
         stopListeningUI();
-        if (!isAnswered) {
-            logDebug("onend ocorreu, mas isAnswered=false. Exibindo erro.", "warning");
-            const feedback = document.getElementById('feedback');
-            const feedbackIcon = document.getElementById('feedbackIcon');
-            const feedbackText = document.getElementById('feedbackText');
-            
-            feedback.className = 'feedback visible wrong';
-            feedbackIcon.textContent = '⚠️';
-            feedbackText.textContent = "Não entendi nada. Tente falar um pouco mais devagar e com clareza.";
-        }
     };
+}
+
+function stopPronunciationChallenge(e) {
+    if (e && e.cancelable) e.preventDefault();
+    if (!recognition) return;
+    logDebug("Botão SOLTO. Parando PTT...", "info");
+    
+    try { recognition.stop(); } catch(e) {}
+    stopListeningUI();
+    
+    setTimeout(() => {
+        if (!isAnswered) {
+            if (lastInterimTranscript !== "") {
+                checkSpokenAnswer(lastInterimTranscript, 0.5);
+            } else {
+                handleFailedAttempt("Nenhum som captado enquanto segurava o botão.");
+            }
+        }
+    }, 400);
+}
+
+function handleFailedAttempt(errorMsg) {
+    if (isAnswered) return;
+    isAnswered = true;
+    
+    currentAttempts++;
+    const wordObj = questions[currentQuestion];
+    const correctWord = wordObj.word.toLowerCase();
+    const key = wordObj.id;
+    
+    let isFailed = (currentAttempts >= 3);
+
+    if (isFailed) {
+        if (state.progress[key]) {
+            state.progress[key].wrong++;
+            state.progress[key].streak = 0;
+        }
+        mistakes.push({ word: correctWord, yourAnswer: "(não entendido)" });
+        streak = 0;
+    }
+    
+    saveState();
+    updateHeaderStats();
+    
+    const card = document.getElementById('questionCard');
+    const feedback = document.getElementById('feedback');
+    const feedbackIcon = document.getElementById('feedbackIcon');
+    const feedbackText = document.getElementById('feedbackText');
+    
+    card.classList.remove('correct', 'wrong', 'partial');
+    feedback.className = 'feedback visible';
+    
+    if (!isFailed) {
+        card.classList.add('wrong');
+        feedback.classList.add('wrong');
+        feedbackIcon.textContent = '⚠️';
+        feedbackText.textContent = `Tentativa ${currentAttempts}/3: ${errorMsg}`;
+    } else {
+        card.classList.add('wrong');
+        feedback.classList.add('wrong');
+        feedbackIcon.textContent = '✗';
+        feedbackText.textContent = `Acabaram as tentativas! O correto é "${correctWord}".`;
+    }
+    
+    setTimeout(() => {
+        if (isFailed) {
+            nextQuestion();
+        } else {
+            isAnswered = false;
+            card.classList.remove('wrong', 'partial');
+            feedback.classList.remove('visible');
+        }
+    }, 2500);
 }
 
 function stopListeningUI() {
@@ -581,7 +603,7 @@ function stopListeningUI() {
     if (micText) micText.textContent = "Pressione e Fale";
 }
 
-function checkSpokenAnswer(spokenWord) {
+function checkSpokenAnswer(spokenWord, confidence = 1.0) {
     if (isAnswered) return;
     isAnswered = true;
     stopListeningUI();
@@ -590,7 +612,16 @@ function checkSpokenAnswer(spokenWord) {
     const correctWord = wordObj.word.toLowerCase();
     
     // Similarity check
-    const similarity = getSimilarity(spokenWord, correctWord);
+    let similarity = 0;
+    
+    if (gameMode === 'phonetics' && wordObj.approximations) {
+        if (wordObj.approximations.includes(spokenWord.toLowerCase())) {
+            similarity = 1.0;
+        }
+    } else {
+        similarity = getSimilarity(spokenWord, correctWord);
+    }
+    
     const timeTaken = (Date.now() - questionStartTime) / 1000;
     
     questionTimes.push(timeTaken);
@@ -600,7 +631,7 @@ function checkSpokenAnswer(spokenWord) {
     let isCorrect = false;
     let isPartial = false;
 
-    if (similarity >= 0.85) {
+    if (similarity >= 0.85 && confidence >= 0.80) {
         isCorrect = true;
         if (state.progress[key]) {
             state.progress[key].correct++;
@@ -612,15 +643,15 @@ function checkSpokenAnswer(spokenWord) {
         streak++;
         if (streak > maxStreak) maxStreak = streak;
         if (streak > state.bestStreak) state.bestStreak = streak;
-    } else if (similarity >= 0.55) {
+    } else if ((similarity >= 0.85 && confidence >= 0.40) || (similarity >= 0.55 && confidence >= 0.40)) {
         isPartial = true;
     }
 
-    if (!isCorrect) {
+    if (!isCorrect && !isPartial) {
         currentAttempts++;
     }
 
-    let isFailed = (!isCorrect && currentAttempts >= 3);
+    let isFailed = (!isCorrect && !isPartial && currentAttempts >= 3);
 
     if (isFailed) {
         if (state.progress[key]) {
@@ -673,7 +704,10 @@ function checkSpokenAnswer(spokenWord) {
         card.classList.add('partial');
         feedback.classList.add('partial');
         feedbackIcon.textContent = '⚠️';
-        feedbackText.textContent = `Tentativa ${currentAttempts}/3: Quase lá! Você disse "${spokenWord}".`;
+        feedbackText.textContent = `Quase lá! Você disse "${spokenWord}". Passando...`;
+        const xp = 5;
+        currentGameXP += xp;
+        showXPPopup(xp, false);
     } else if (!isFailed) {
         card.classList.add('wrong');
         feedback.classList.add('wrong');
@@ -687,14 +721,14 @@ function checkSpokenAnswer(spokenWord) {
     }
     
     setTimeout(() => {
-        if (isCorrect || isFailed) {
+        if (isCorrect || isPartial || isFailed) {
             if (isAnswered) nextQuestion();
         } else {
             isAnswered = false;
             card.classList.remove('wrong', 'partial');
             feedback.classList.remove('visible');
         }
-    }, isCorrect ? 1000 : 2500);
+    }, isCorrect || isPartial ? 1000 : 2500);
 }
 
 function checkBatchUnlock() {
@@ -1065,10 +1099,17 @@ function openAppendix() {
 }
 
 function playPhoneme(word) {
+    const p = phonemesDatabase.find(x => x.word === word);
+    if (p && p.audio) {
+        const audio = new Audio(`audios/${p.audio}.mp3`);
+        audio.play().catch(e => console.log(e));
+        return;
+    }
+    
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.lang = 'en-US';
-    utterance.rate = 0.7; // Lento para foco
+    utterance.rate = 0.7; 
     window.speechSynthesis.speak(utterance);
 }
 
@@ -1077,4 +1118,20 @@ window.onload = () => {
     checkDailyStreak();
     updateHeaderStats();
     createParticles();
+    
+    const btnMic = document.getElementById('btnMic');
+    if (btnMic) {
+        btnMic.addEventListener('mousedown', startPronunciationChallenge);
+        btnMic.addEventListener('touchstart', startPronunciationChallenge, {passive: false});
+        
+        const stopPTT = (e) => {
+            if (btnMic.classList.contains('listening')) {
+                stopPronunciationChallenge(e);
+            }
+        };
+        
+        btnMic.addEventListener('mouseup', stopPTT);
+        btnMic.addEventListener('mouseleave', stopPTT);
+        btnMic.addEventListener('touchend', stopPTT, {passive: false});
+    }
 };

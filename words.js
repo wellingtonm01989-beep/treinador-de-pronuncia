@@ -521,14 +521,14 @@ const englishDatabase = [
 ];
 
 const phonemesDatabase = [
-  { id: 1001, symbol: "/iː/", word: "see", translation: "Som longo (see)", phonetic: "/iː/" },
-  { id: 1002, symbol: "/uː/", word: "too", translation: "Som longo (too)", phonetic: "/uː/" },
-  { id: 1003, symbol: "/ɑː/", word: "father", translation: "Som longo (father)", phonetic: "/ɑː/" },
-  { id: 1004, symbol: "/ɪ/", word: "sit", translation: "Som curto (sit)", phonetic: "/ɪ/" },
-  { id: 1005, symbol: "/ʊ/", word: "book", translation: "Som curto (book)", phonetic: "/ʊ/" },
-  { id: 1006, symbol: "/æ/", word: "cat", translation: "Som curto (cat)", phonetic: "/æ/" },
-  { id: 1007, symbol: "/θ/", word: "think", translation: "Consoante complexa (think)", phonetic: "/θ/" },
-  { id: 1008, symbol: "/ð/", word: "this", translation: "Consoante complexa (this)", phonetic: "/ð/" },
-  { id: 1009, symbol: "/ʃ/", word: "she", translation: "Consoante complexa (she)", phonetic: "/ʃ/" },
-  { id: 1010, symbol: "/tʃ/", word: "cheese", translation: "Consoante complexa (cheese)", phonetic: "/tʃ/" }
+  { id: 1001, symbol: "/iː/", word: "see", translation: "Som longo (see)", phonetic: "/iː/", audio: "phoneme_i_long", approximations: ["ee", "e", "i", "ea", "he", "she", "see", "sea"] },
+  { id: 1002, symbol: "/uː/", word: "too", translation: "Som longo (too)", phonetic: "/uː/", audio: "phoneme_u_long", approximations: ["oo", "u", "ou", "o", "two", "too", "you", "who"] },
+  { id: 1003, symbol: "/ɑː/", word: "father", translation: "Som longo (father)", phonetic: "/ɑː/", audio: "phoneme_a_long", approximations: ["a", "ah", "ar", "far", "father"] },
+  { id: 1004, symbol: "/ɪ/", word: "sit", translation: "Som curto (sit)", phonetic: "/ɪ/", audio: "phoneme_i_short", approximations: ["i", "e", "it", "sit", "is"] },
+  { id: 1005, symbol: "/ʊ/", word: "book", translation: "Som curto (book)", phonetic: "/ʊ/", audio: "phoneme_u_short", approximations: ["u", "oo", "ou", "book", "look", "good"] },
+  { id: 1006, symbol: "/æ/", word: "cat", translation: "Som curto (cat)", phonetic: "/æ/", audio: "phoneme_a_short", approximations: ["a", "e", "cat", "bat", "at", "an"] },
+  { id: 1007, symbol: "/θ/", word: "think", translation: "Consoante complexa (think)", phonetic: "/θ/", audio: "phoneme_th_unvoiced", approximations: ["th", "t", "f", "think", "thanks", "with"] },
+  { id: 1008, symbol: "/ð/", word: "this", translation: "Consoante complexa (this)", phonetic: "/ð/", audio: "phoneme_th_voiced", approximations: ["th", "d", "v", "the", "this", "that"] },
+  { id: 1009, symbol: "/ʃ/", word: "she", translation: "Consoante complexa (she)", phonetic: "/ʃ/", audio: "phoneme_sh", approximations: ["sh", "ch", "s", "she", "show", "shoe"] },
+  { id: 1010, symbol: "/tʃ/", word: "cheese", translation: "Consoante complexa (cheese)", phonetic: "/tʃ/", audio: "phoneme_ch", approximations: ["ch", "sh", "t", "cheese", "chair", "catch"] }
 ];
