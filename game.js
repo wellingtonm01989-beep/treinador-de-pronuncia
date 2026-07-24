@@ -409,20 +409,41 @@ function playWordSound() {
     if (!questions || questions.length === 0) return;
     const wordObj = questions[currentQuestion];
     
-    if (gameMode === 'phonetics' && wordObj.audio) {
-        const audio = new Audio(`audios/${wordObj.audio}.mp3`);
-        audio.play().catch(e => logDebug("Erro ao tocar áudio: " + e.message, "error"));
-        return;
+    let textToSpeak = wordObj.word;
+    
+    // Para fonemas, pronunciamos o som do fonema em vez da palavra de exemplo
+    if (gameMode === 'phonetics') {
+        const phonemeSounds = {
+            "see": "eeee",
+            "too": "oooo",
+            "father": "ahhh",
+            "sit": "ih",
+            "book": "uh",
+            "cat": "aah",
+            "think": "th",
+            "this": "th",
+            "she": "shhh",
+            "cheese": "ch"
+        };
+        textToSpeak = phonemeSounds[wordObj.word] || wordObj.symbol.replace(/\//g, '');
     }
     
-    // Cancela qualquer fala anterior
-    window.speechSynthesis.cancel();
+    // Usa a API do Google Translate TTS (alta qualidade, sem voz robótica do Windows)
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en-US&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
     
-    const utterance = new SpeechSynthesisUtterance(wordObj.word);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9; 
-    
-    window.speechSynthesis.speak(utterance);
+    const audio = new Audio(url);
+    audio.play().catch(e => {
+        logDebug("Erro ao tocar áudio da API, usando fallback (SpeechSynthesis): " + e.message, "error");
+        
+        // Fallback caso falhe a internet
+        window.speechSynthesis.cancel();
+        setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9; 
+            window.speechSynthesis.speak(utterance);
+        }, 50); // Timeout resolve o bug de atraso na segunda tentativa do motor do windows
+    });
 }
 
 // ===== SPEECH RECOGNITION =====
@@ -1099,18 +1120,34 @@ function openAppendix() {
 }
 
 function playPhoneme(word) {
-    const p = phonemesDatabase.find(x => x.word === word);
-    if (p && p.audio) {
-        const audio = new Audio(`audios/${p.audio}.mp3`);
-        audio.play().catch(e => console.log(e));
-        return;
-    }
+    const phonemeSounds = {
+        "see": "eeee",
+        "too": "oooo",
+        "father": "ahhh",
+        "sit": "ih",
+        "book": "uh",
+        "cat": "aah",
+        "think": "th",
+        "this": "th",
+        "she": "shhh",
+        "cheese": "ch"
+    };
     
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(word);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.7; 
-    window.speechSynthesis.speak(utterance);
+    const textToSpeak = phonemeSounds[word] || word;
+
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en-US&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
+    const audio = new Audio(url);
+    
+    audio.play().catch(e => {
+        console.log("Erro ao tocar áudio da API, usando fallback:", e);
+        window.speechSynthesis.cancel();
+        setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.7; 
+            window.speechSynthesis.speak(utterance);
+        }, 50);
+    });
 }
 
 // ===== INITIALIZE =====
