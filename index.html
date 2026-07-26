@@ -17,6 +17,27 @@
 </head>
 <body>
 
+    <!-- BANNER DE ALERTA PARA MODO LOCAL FILE:// -->
+    <div id="fileProtocolWarning" style="display: none; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; padding: 1rem 1.5rem; border-radius: 16px; margin: 1rem auto; max-width: 1380px; width: 94%; font-family: 'Outfit', sans-serif; box-shadow: 0 4px 25px rgba(239, 68, 68, 0.5); line-height: 1.6; z-index: 9999; position: relative; border: 1px solid rgba(255,255,255,0.3);">
+        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚠️ ATENÇÃO: ARQUIVO ABERTO DIRETO DA PASTA DO WINDOWS (<code>file://</code>)</span>
+        </div>
+        <div style="font-size: 0.95rem; opacity: 0.95;">
+            Por segurança e privacidade, navegadores como Google Chrome e Edge <b>bloqueiam Módulos ES6 (import/export) e a Transcrição de Voz (Web Speech API)</b> em arquivos abertos localmente sem um servidor HTTP.<br>
+            👉 <b>Como fazer funcionar agora mesmo no seu PC ou Celular:</b><br>
+            1. Acesse a versão ao vivo oficial que acabamos de publicar: <a href="https://wellingtonm01989-beep.github.io/treinador-de-pronuncia/" target="_blank" style="color: #67e8f9; text-decoration: underline; font-weight: bold;">https://wellingtonm01989-beep.github.io/treinador-de-pronuncia/</a><br>
+            2. Ou abra no seu PC usando o <b>Live Server</b> do VS Code (ou rodando <code>python -m http.server</code> no terminal da pasta).
+        </div>
+    </div>
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.addEventListener('DOMContentLoaded', () => {
+                const warn = document.getElementById('fileProtocolWarning');
+                if (warn) warn.style.display = 'block';
+            });
+        }
+    </script>
+
     <div class="app-container">
         
         <!-- CABEÇALHO PREMIUM -->

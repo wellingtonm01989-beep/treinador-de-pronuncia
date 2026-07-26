@@ -107,11 +107,15 @@ export class AudioCaptureModule {
         // Reativamos automaticamente se o usuário ainda estiver com a gravação ativa!
         this.speechRecognition.onend = () => {
             if (this.isRecording && !this.isPaused) {
-                try {
-                    this.speechRecognition.start();
-                } catch (e) {
-                    console.debug('[SpeechRecognition] Reinício automático ignorado (já em execução ou falha transitória).');
-                }
+                setTimeout(() => {
+                    if (this.isRecording && !this.isPaused) {
+                        try {
+                            this.speechRecognition.start();
+                        } catch (e) {
+                            console.debug('[SpeechRecognition] Reinício automático ignorado (já em execução ou falha transitória).');
+                        }
+                    }
+                }, 300);
             }
         };
     }
@@ -228,11 +232,16 @@ export class AudioCaptureModule {
 
             // CAMADA 4: Transcrição de Voz Nativa em Tempo Real
             if (this.speechRecognition) {
-                try {
-                    this.speechRecognition.start();
-                } catch (e) {
-                    console.warn('[SpeechRecognition] Falha ao iniciar reconhecimento de voz no start:', e);
-                }
+                setTimeout(() => {
+                    if (this.isRecording && !this.isPaused) {
+                        try {
+                            this.speechRecognition.start();
+                            console.log('[SpeechRecognition] Reconhecimento de voz iniciado com sucesso!');
+                        } catch (e) {
+                            console.warn('[SpeechRecognition] Falha ao iniciar reconhecimento de voz no start:', e);
+                        }
+                    }
+                }, 400); // Delay para permitir que o driver de áudio do Windows libere a concorrência após getUserMedia
             }
 
             // Atualiza estados e cronômetro
