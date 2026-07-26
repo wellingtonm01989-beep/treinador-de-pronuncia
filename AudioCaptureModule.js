@@ -112,10 +112,10 @@ export class AudioCaptureModule {
         this.speechRecognition.onerror = (event) => {
             // Se o erro for apenas "no-speech" ou "aborted", não encerramos a gravação de áudio
             if (event.error === 'no-speech' || event.error === 'aborted') {
-                console.log(`[SpeechRecognition] Evento normal de escuta/pausa (${event.error})...`);
+                console.log(`[SpeechRecognition] Evento normal de escuta/pausa (${event.error}).`);
                 return;
             }
-            console.warn(`[SpeechRecognition] Aviso/Erro: ${event.error}`);
+            console.error(`[SpeechRecognition] Exceção/Erro na Transcrição: ${event.error} (detalhe: ${event.message || 'sem detalhes adicionais'})`);
             // No mobile, erros transitórios de rede ou concorrência de áudio não devem desativar o módulo de gravação
             if (event.error !== 'aborted' && event.error !== 'service-not-allowed') {
                 this.onError(new Error(`Erro de Transcrição: ${event.error}`), 'speech_recognition');
@@ -132,7 +132,7 @@ export class AudioCaptureModule {
                         try {
                             this.speechRecognition.start();
                         } catch (e) {
-                            console.debug('[SpeechRecognition] Reinício automático ignorado (já em execução ou falha transitória).');
+                            console.warn(`[SpeechRecognition] Aviso na reativação automática (silêncio/pausa): ${e.message || e}`);
                         }
                     }
                 }, isMobile ? 150 : 300);
@@ -276,7 +276,7 @@ export class AudioCaptureModule {
                             this.speechRecognition.start();
                             console.log('[SpeechRecognition] Reconhecimento de voz iniciado após estabilização de áudio!');
                         } catch (e) {
-                            console.debug('[SpeechRecognition] Aviso no início da transcrição:', e.message || e);
+                            console.warn(`[SpeechRecognition] Exceção/Aviso no início da transcrição: ${e.message || e}`);
                         }
                     }
                 }, 100);
