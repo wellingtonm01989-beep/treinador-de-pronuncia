@@ -287,9 +287,9 @@ function setupEventListeners() {
         }
     });
 
-    // 11. Botão Baixar Áudio (WhatsApp)
+    // 11. Botão Baixar Áudio (WhatsApp) - Suporte Universal (Celular e PC)
     DOM.btnDownload.addEventListener('click', () => {
-        startRecordAndSpeak();
+        downloadMp3Audio();
     });
 }
 
@@ -499,237 +499,111 @@ function showCompatibilityAlert(message) {
 }
 
 // ============================================================================
-// SISTEMA DE GRAVAÇÃO E DOWNLOAD DE ÁUDIO MP3 (Compatível com WhatsApp)
-// Captura PCM da aba via getDisplayMedia + AudioContext + ScriptProcessorNode
-// Codifica para MP3 via lamejs (128kbps, mono) — formato universal para WhatsApp
+// SISTEMA DE DOWNLOAD DE ÁUDIO MP3 UNIVERSAL (COMPATÍVEL COM CELULAR & PC)
+// Sintetiza e baixa arquivo .mp3 nativo de alta fidelidade sem exigir captura de aba
 // ============================================================================
 
 /**
- * Inicia a captura de áudio da aba, grava PCM enquanto a fala é reproduzida,
- * converte para MP3 e dispara o download automaticamente.
+ * Baixa um arquivo MP3 do texto atual de forma instantânea e universal
+ * Compatível 100% com WhatsApp em smartphones (Android/iOS) e navegadores desktop.
  */
-async function startRecordAndSpeak() {
+async function downloadMp3Audio() {
     const text = DOM.textInput.value.trim();
     if (!text) {
         showCompatibilityAlert('Digite ou cole um texto antes de baixar o áudio.');
         return;
     }
 
-    // Se já está gravando, ignorar clique duplicado
     if (isRecordingForDownload) return;
+    isRecordingForDownload = true;
 
-    // Verificar se o protocolo permite captura de áudio (requer localhost ou HTTPS)
-    if (!window.isSecureContext) {
-        showCompatibilityAlert(
-            'Para baixar o áudio, abra o app via servidor local: execute "node serve.js" no terminal e acesse http://localhost:8080. ' +
-            'O protocolo file:// não permite captura de áudio do navegador por segurança.'
-        );
-        return;
-    }
-
-    // Verificar suporte à API de captura
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        showCompatibilityAlert('Seu navegador não suporta captura de áudio. Use Google Chrome ou Microsoft Edge atualizados.');
-        return;
-    }
+    DOM.btnDownload.disabled = true;
+    DOM.btnDownload.classList.add('is-recording');
+    DOM.downloadBtnText.textContent = '⏳ Gerando MP3...';
+    DOM.downloadStatus.textContent = 'Codificando síntese de voz em MP3...';
 
     try {
-        DOM.downloadBtnText.textContent = '🎤 Autorize a captura...';
-        DOM.downloadStatus.textContent = 'Selecione a aba atual e clique "Compartilhar"';
+        const lang = vocalReader.getStatus().currentLang || 'en-US';
+        const langCode = lang.startsWith('pt') ? 'pt-BR' : 'en-US';
+        
+        // Dividir texto em trechos de até 180 caracteres
+        const chunks = splitTextIntoChunks(text, 180);
+        const audioBuffers = [];
 
-        // Solicitar captura de áudio da aba ao navegador
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-            audio: {
-                suppressLocalAudioPlayback: false,
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false
-            },
-            video: true, // Obrigatório pela API, descartado imediatamente
-            preferCurrentTab: true,
-            selfBrowserSurface: 'include'
-        });
-
-        // Descartar track de vídeo imediatamente
-        stream.getVideoTracks().forEach(track => track.stop());
-
-        // Verificar se há faixa de áudio
-        const audioTracks = stream.getAudioTracks();
-        if (audioTracks.length === 0) {
-            showCompatibilityAlert(
-                'Nenhuma faixa de áudio foi capturada. Certifique-se de marcar a opção "Compartilhar áudio da aba" na janela de permissão do Chrome.'
-            );
-            stream.getTracks().forEach(t => t.stop());
-            resetDownloadUI();
-            return;
+        for (let i = 0; i < chunks.length; i++) {
+            if (chunks.length > 1) {
+                DOM.downloadStatus.textContent = `Processando MP3 (parte ${i + 1} de ${chunks.length})...`;
+            }
+            const chunkText = chunks[i];
+            const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunkText)}&tl=${langCode}&client=tw-ob`;
+            
+            const res = await fetch(ttsUrl);
+            if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+            const buffer = await res.arrayBuffer();
+            audioBuffers.push(buffer);
         }
 
-        // Configurar AudioContext para captura de amostras PCM brutas
-        const audioStream = new MediaStream(audioTracks);
-        downloadAudioContext = new AudioContext();
-        downloadSampleRate = downloadAudioContext.sampleRate;
-        const source = downloadAudioContext.createMediaStreamSource(audioStream);
+        // Concatenar os buffers em um único Blob MP3
+        const finalMp3Blob = new Blob(audioBuffers, { type: 'audio/mp3' });
+        
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        const filename = `leitura_${langCode}_${timestamp}.mp3`;
 
-        // ScriptProcessorNode captura amostras Float32 em tempo real
-        downloadProcessor = downloadAudioContext.createScriptProcessor(4096, 1, 1);
-        downloadPcmChunks = [];
+        // Disparar o download nativo no celular / computador
+        const url = URL.createObjectURL(finalMp3Blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-        downloadProcessor.onaudioprocess = (e) => {
-            if (isRecordingForDownload) {
-                const inputData = e.inputBuffer.getChannelData(0);
-                downloadPcmChunks.push(new Float32Array(inputData));
-            }
-        };
-
-        // Conectar: source → processor → gain(0) → destination
-        // O gain(0) evita eco/duplicação de áudio (o usuário já ouve pelo speechSynthesis)
-        const silentGain = downloadAudioContext.createGain();
-        silentGain.gain.value = 0;
-        source.connect(downloadProcessor);
-        downloadProcessor.connect(silentGain);
-        silentGain.connect(downloadAudioContext.destination);
-
-        downloadStream = stream;
-        isRecordingForDownload = true;
-
-        // Detectar se o usuário parou a captura manualmente pelo Chrome
-        audioTracks[0].onended = () => {
-            if (isRecordingForDownload) {
-                stopAndSaveRecording();
-            }
-        };
-
-        // Atualizar UI para estado de gravação
-        DOM.btnDownload.classList.add('is-recording');
-        DOM.btnDownload.disabled = true;
-        DOM.downloadBtnText.textContent = '🔴 Gravando áudio...';
-        DOM.downloadStatus.textContent = 'A leitura está sendo capturada. Aguarde o término.';
-
-        // Iniciar a leitura do texto (o callback onEnd vai parar a gravação)
-        vocalReader.speak(text);
+        const sizeKB = (finalMp3Blob.size / 1024).toFixed(1);
+        DOM.downloadStatus.textContent = `✅ MP3 baixado: ${filename} (${sizeKB} KB) — Pronto para WhatsApp!`;
+        console.log(`[Download] ✅ MP3 baixado com sucesso: ${filename} (${sizeKB} KB)`);
 
     } catch (err) {
-        console.warn('[Download] Captura cancelada ou erro:', err);
-        if (err.name === 'NotAllowedError') {
-            DOM.downloadStatus.textContent = 'Captura cancelada pelo usuário.';
+        console.warn('[Download] Gerador de MP3 falhou:', err);
+        showCompatibilityAlert('Não foi possível gerar o áudio no momento. Verifique sua conexão com a internet.');
+    } finally {
+        isRecordingForDownload = false;
+        resetDownloadUI();
+    }
+}
+
+/**
+ * Dividir textos longos em trechos de até maxLen caracteres respeitando pontuações
+ */
+function splitTextIntoChunks(text, maxLen = 180) {
+    const sentences = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+    const chunks = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+        if ((currentChunk + sentence).length <= maxLen) {
+            currentChunk += sentence;
         } else {
-            showCompatibilityAlert('Erro ao iniciar captura: ' + err.message);
-        }
-        resetDownloadUI();
-    }
-}
-
-/**
- * Para a captura de áudio e inicia a conversão para MP3.
- */
-function stopAndSaveRecording() {
-    isRecordingForDownload = false;
-
-    // Desconectar nós de áudio
-    try {
-        if (downloadProcessor) downloadProcessor.disconnect();
-        if (downloadAudioContext && downloadAudioContext.state !== 'closed') downloadAudioContext.close();
-    } catch (e) {
-        console.warn('[Download] Erro ao desconectar AudioContext:', e);
-    }
-
-    // Parar todas as tracks de captura
-    if (downloadStream) {
-        downloadStream.getTracks().forEach(track => track.stop());
-    }
-
-    // Verificar se há dados capturados
-    if (downloadPcmChunks.length === 0) {
-        DOM.downloadStatus.textContent = '⚠️ Nenhum áudio capturado. Tente novamente.';
-        resetDownloadUI();
-        return;
-    }
-
-    DOM.downloadBtnText.textContent = '⏳ Convertendo para MP3...';
-    DOM.downloadStatus.textContent = 'Codificando áudio...';
-
-    // Processar assíncronamente para não travar a UI
-    setTimeout(() => encodePcmToMp3AndDownload(), 100);
-}
-
-/**
- * Mescla os chunks PCM, codifica para MP3 via lamejs e dispara o download.
- */
-function encodePcmToMp3AndDownload() {
-    // Mesclar todos os chunks Float32 em um único array
-    const totalLength = downloadPcmChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const pcmData = new Float32Array(totalLength);
-    let offset = 0;
-    for (const chunk of downloadPcmChunks) {
-        pcmData.set(chunk, offset);
-        offset += chunk.length;
-    }
-    downloadPcmChunks = []; // Liberar memória
-
-    // Converter Float32 (-1.0 a 1.0) para Int16 (-32768 a 32767)
-    const int16Data = new Int16Array(pcmData.length);
-    for (let i = 0; i < pcmData.length; i++) {
-        const s = Math.max(-1, Math.min(1, pcmData[i]));
-        int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-
-    let blob;
-    let extension;
-
-    // Tentar codificar como MP3 via lamejs
-    if (typeof lamejs !== 'undefined') {
-        try {
-            const mp3encoder = new lamejs.Mp3Encoder(1, downloadSampleRate, 128); // Mono, 128kbps
-            const mp3Data = [];
-            const blockSize = 1152; // Tamanho padrão de bloco MPEG
-
-            for (let i = 0; i < int16Data.length; i += blockSize) {
-                const chunk = int16Data.subarray(i, Math.min(i + blockSize, int16Data.length));
-                const mp3buf = mp3encoder.encodeBuffer(chunk);
-                if (mp3buf.length > 0) mp3Data.push(mp3buf);
+            if (currentChunk.trim()) chunks.push(currentChunk.trim());
+            if (sentence.length > maxLen) {
+                const words = sentence.split(' ');
+                currentChunk = '';
+                for (const word of words) {
+                    if ((currentChunk + ' ' + word).length <= maxLen) {
+                        currentChunk += (currentChunk ? ' ' : '') + word;
+                    } else {
+                        if (currentChunk.trim()) chunks.push(currentChunk.trim());
+                        currentChunk = word;
+                    }
+                }
+            } else {
+                currentChunk = sentence;
             }
-
-            const end = mp3encoder.flush();
-            if (end.length > 0) mp3Data.push(end);
-
-            blob = new Blob(mp3Data, { type: 'audio/mp3' });
-            extension = 'mp3';
-            console.log('[Download] ✅ Áudio codificado como MP3 com sucesso.');
-        } catch (e) {
-            console.warn('[Download] Falha na codificação MP3, usando fallback:', e);
-            const wavBlob = encodeWav(int16Data, downloadSampleRate);
-            blob = new Blob([wavBlob], { type: 'audio/mp3' });
-            extension = 'mp3';
         }
-    } else {
-        // Fallback para áudio MP3
-        console.warn('[Download] lamejs não disponível, gerando áudio com extensão MP3.');
-        const wavBlob = encodeWav(int16Data, downloadSampleRate);
-        blob = new Blob([wavBlob], { type: 'audio/mp3' });
-        extension = 'mp3';
     }
-
-    // Gerar nome do arquivo com timestamp e idioma
-    const now = new Date();
-    const timestamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-    const langSuffix = vocalReader.getStatus().currentLang || 'audio';
-    const filename = `leitura_${langSuffix}_${timestamp}.${extension}`;
-
-    // Criar link de download e disparar automaticamente
-    const url = URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.download = filename;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-    const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
-    DOM.downloadStatus.textContent = `✅ Baixado: ${filename} (${sizeMB} MB) — Pronto para enviar no WhatsApp!`;
-    console.log(`[Download] ✅ Arquivo salvo: ${filename} | Tamanho: ${sizeMB} MB | Formato: ${extension.toUpperCase()}`);
-
-    resetDownloadUI();
+    if (currentChunk.trim()) chunks.push(currentChunk.trim());
+    return chunks.length > 0 ? chunks : [text.slice(0, maxLen)];
 }
 
 /**
