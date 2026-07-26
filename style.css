@@ -1,0 +1,663 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    /* Paleta de Cores Premium (Dark Vibrant HSL) */
+    --bg-main: #080a12;
+    --bg-surface: rgba(22, 26, 46, 0.6);
+    --bg-glass: rgba(255, 255, 255, 0.04);
+    --bg-glass-hover: rgba(255, 255, 255, 0.08);
+    --border-glass: rgba(255, 255, 255, 0.09);
+    --border-highlight: rgba(255, 255, 255, 0.2);
+    
+    /* Tons Vibrantes */
+    --primary: #6366f1;       /* Violeta Tech */
+    --primary-glow: rgba(99, 102, 241, 0.4);
+    --secondary: #06b6d4;     /* Ciano Acústico */
+    --accent: #10b981;        /* Esmeralda Limpo/Pronto */
+    --accent-glow: rgba(16, 185, 129, 0.4);
+    --danger: #ef4444;        /* Vermelho Gravação */
+    --danger-glow: rgba(239, 68, 68, 0.6);
+    --warning: #f59e0b;
+    
+    /* Tipografia */
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    
+    --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
+    --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    position: relative;
+    line-height: 1.6;
+}
+
+/* Fundo Atmosférico Animado (Efeito Neon Blobs) */
+body::before, body::after {
+    content: '';
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    filter: blur(140px);
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    animation: floatBlob 20s infinite alternate ease-in-out;
+}
+
+body::before {
+    top: -150px;
+    left: -100px;
+    background: radial-gradient(circle, var(--primary), transparent 70%);
+}
+
+body::after {
+    bottom: -150px;
+    right: -100px;
+    background: radial-gradient(circle, var(--secondary), transparent 70%);
+    animation-delay: -10s;
+}
+
+@keyframes floatBlob {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(100px, 50px) scale(1.15); }
+}
+
+/* Container Principal */
+.app-container {
+    max-width: 1380px;
+    width: 94%;
+    margin: 0 auto;
+    padding: 2rem 0 4rem 0;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Cabeçalho Premium */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    box-shadow: 0 0 25px var(--primary-glow);
+}
+
+.title-text h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.title-text p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+
+.header-badges {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-glass);
+    border-radius: 99px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.badge.green { color: var(--accent); border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.08); }
+.badge.cyan  { color: var(--secondary); border-color: rgba(6, 182, 212, 0.3); background: rgba(6, 182, 212, 0.08); }
+.badge.violet { color: #a855f7; border-color: rgba(168, 85, 247, 0.3); background: rgba(168, 85, 247, 0.08); }
+
+/* Grid de Conteúdo */
+.main-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Cartões de Vidro (Glassmorphism Cards) */
+.glass-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 1.2rem;
+}
+
+.card-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-main);
+}
+
+.card-header p {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+/* Painel de Controle de Filtros (Auditoria ao Vivo) */
+.filter-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .filter-controls {
+        grid-template-columns: 1fr;
+    }
+}
+
+.filter-toggle-box {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.filter-toggle-box.active {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.08), rgba(0, 0, 0, 0.3));
+}
+
+.toggle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.toggle-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Switch Toggle Customizado */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 34px;
+    border: 1px solid var(--border-glass);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+input:checked + .slider {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+/* Visualizador Gráfico (Canvas) */
+.visualizer-container {
+    background: rgba(5, 7, 14, 0.75);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 1.2rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+}
+
+.visualizer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: var(--transition);
+}
+
+.status-dot.active {
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    animation: pulseDot 1.5s infinite;
+}
+
+.status-dot.recording {
+    background: var(--danger);
+    box-shadow: 0 0 12px var(--danger);
+    animation: pulseDot 0.8s infinite;
+}
+
+@keyframes pulseDot {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+canvas#audioVisualizer {
+    width: 100%;
+    height: 160px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    display: block;
+}
+
+/* Botões de Ação Principal */
+.actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.5rem;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.8rem;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(1);
+}
+
+/* Botão Gravar / Parar (Toggle) */
+.btn-record {
+    background: linear-gradient(135deg, var(--primary), #4f46e5);
+    color: white;
+    box-shadow: 0 8px 25px var(--primary-glow);
+    flex: 1;
+    min-width: 200px;
+}
+
+.btn-record:hover:not(:disabled) {
+    box-shadow: 0 10px 32px var(--primary-glow);
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.btn-record.is-recording {
+    background: linear-gradient(135deg, var(--danger), #dc2626);
+    box-shadow: 0 0 30px var(--danger-glow);
+    animation: pulseRecordBtn 1.5s infinite;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+@keyframes pulseRecordBtn {
+    0% { box-shadow: 0 0 20px var(--danger-glow); }
+    50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.85); }
+    100% { box-shadow: 0 0 20px var(--danger-glow); }
+}
+
+/* Botão Reproduzir */
+.btn-play {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main);
+    border: 1px solid var(--border-glass);
+    flex: 1;
+    min-width: 180px;
+}
+
+.btn-play:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+/* Player de Áudio Incorporado & Bônus Download */
+.playback-section {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.2rem;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px dashed var(--border-highlight);
+    border-radius: var(--radius-md);
+    margin-top: 0.5rem;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.playback-section.visible {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.playback-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+audio#audioPlayer {
+    width: 100%;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    outline: none;
+}
+
+.btn-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    background: rgba(6, 182, 212, 0.1);
+    color: var(--secondary);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition);
+    align-self: flex-start;
+}
+
+.btn-download:hover {
+    background: var(--secondary);
+    color: #000;
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+}
+
+/* Área de Transcrição ao Vivo (Estilo Duolingo / Chat AI) */
+.transcript-box {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 480px;
+}
+
+.transcript-content {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    font-size: 1.05rem;
+    line-height: 1.8;
+    overflow-y: auto;
+    max-height: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    position: relative;
+}
+
+.transcript-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.transcript-content::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 99px;
+}
+
+.transcript-placeholder {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 2rem;
+}
+
+.transcript-placeholder i {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+/* Textos da Transcrição */
+.transcript-final {
+    color: var(--text-main);
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.8rem 1.2rem;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent);
+    animation: slideIn 0.3s ease-out;
+}
+
+.transcript-interim {
+    color: var(--secondary);
+    font-style: italic;
+    opacity: 0.9;
+    background: rgba(6, 182, 212, 0.05);
+    padding: 0.8rem 1.2rem;
+    border-radius: var(--radius-sm);
+    border-left: 3px dashed var(--secondary);
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.transcript-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.btn-xs {
+    padding: 0.5rem 1rem;
+    font-size: 0.82rem;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-xs:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+}
+
+/* Rodapé de Diagnóstico */
+.app-footer {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.diagnostics-list {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.diag-item span {
+    color: var(--text-main);
+    font-weight: 600;
+}

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VocalClean DSP • Módulo de Captura & Transcrição PWA</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#080a12">
+    <meta name="description" content="Módulo de Captura de Áudio ultrarresistente a ruídos com DSP 100% Client-Side e Transcrição em Tempo Real.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Estilo Principal -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- CABEÇALHO PREMIUM -->
+        <header class="app-header">
+            <div class="header-title">
+                <div class="logo-icon">🎙️</div>
+                <div class="title-text">
+                    <h1>VocalClean DSP <span style="font-size: 0.8em; opacity: 0.8; font-weight: 300;">| Módulo Acústico</span></h1>
+                    <p>Captura ultrarresistente a ruído, filtragem de frequência vocal & transcrição em tempo real</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <div class="badge green">⚡ 100% Client-Side</div>
+                <div class="badge cyan">🛡️ Zero Custo</div>
+                <div class="badge violet">📱 PWA Ready</div>
+            </div>
+        </header>
+
+        <!-- GRID DE CONTEÚDO PRINCIPAL -->
+        <main class="main-grid">
+            
+            <!-- COLUNA ESQUERDA: CONTROLE ACÚSTICO, VISUALIZADOR & GRAVAÇÃO -->
+            <section class="glass-card">
+                <div class="card-header">
+                    <div>
+                        <h2>🎛️ Painel de Auditoria Acústica</h2>
+                        <p>Alterne os filtros ao vivo para comparar a supressão de ruído</p>
+                    </div>
+                    <span id="timerDisplay" style="font-family: var(--font-mono); font-size: 1.2rem; font-weight: 600; color: var(--secondary);">00:00</span>
+                </div>
+
+                <!-- 1. PAINEL DE CONTROLE DE FILTROS -->
+                <div class="filter-controls">
+                    <!-- Toggle 1: Supressão Nativa -->
+                    <div class="filter-toggle-box active" id="boxNative">
+                        <div class="toggle-header">
+                            <span class="toggle-title">🛡️ Supressão Nativa</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleNative" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="toggle-desc">Ativa os algoritmos WebRTC do navegador (Noise Suppression, Echo Cancellation e Auto Gain Control).</p>
+                    </div>
+
+                    <!-- Toggle 2: Filtros de Frequência DSP -->
+                    <div class="filter-toggle-box active" id="boxDsp">
+                        <div class="toggle-header">
+                            <span class="toggle-title">🎚️ Filtros de Voz (DSP)</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggleDsp" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="toggle-desc">Passa-Alta (85Hz) + Passa-Baixa (7kHz) e Compressor Dinâmico via Web Audio API.</p>
+                    </div>
+                </div>
+
+                <!-- 2. VISUALIZADOR GRÁFICO EM TEMPO REAL -->
+                <div class="visualizer-container">
+                    <div class="visualizer-header">
+                        <div class="status-indicator">
+                            <span class="status-dot" id="statusDot"></span>
+                            <span id="statusText">Aguardando Microfone...</span>
+                        </div>
+                        <span id="audioLevelText">Nível: -∞ dB</span>
+                    </div>
+                    <canvas id="audioVisualizer" width="600" height="160"></canvas>
+                </div>
+
+                <!-- 3. & 4. BOTÕES DE AÇÃO (GRAVAR / REPRODUZIR) -->
+                <div class="actions-bar">
+                    <button id="btnRecord" class="btn btn-record">
+                        <span>🔴</span> <span id="recordBtnText">Iniciar Gravação</span>
+                    </button>
+                    <button id="btnPlay" class="btn btn-play" disabled>
+                        <span>▶️</span> <span>Reproduzir Som Gravado</span>
+                    </button>
+                </div>
+
+                <!-- SEÇÃO DE REPRODUÇÃO & BÔNUS DOWNLOAD -->
+                <div id="playbackSection" class="playback-section">
+                    <div class="playback-header">
+                        <span>✅ Auditoria de Qualidade — Áudio Processado</span>
+                        <span id="durationChip">Duração: 0s</span>
+                    </div>
+                    <audio id="audioPlayer" controls></audio>
+                    
+                    <!-- Botão Bônus de Download -->
+                    <a id="btnDownload" class="btn-download" href="#" download="captura_filtrada_vocalclean.webm">
+                        <span>⬇️</span> <span>Baixar Arquivo .webm (Inspeção Externa)</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- COLUNA DIREITA: TRANSCRIÇÃO EM TEMPO REAL (TIPO DUOLINGO) -->
+            <section class="glass-card transcript-box">
+                <div class="card-header">
+                    <div>
+                        <h2>💬 Transcrição de Voz ao Vivo</h2>
+                        <p>Conversação em tempo real (Web Speech API • pt-BR)</p>
+                    </div>
+                    <span id="speechStatus" class="badge cyan" style="font-size: 0.7rem;">🇧🇷 Prontidão Nativa</span>
+                </div>
+
+                <!-- 5. CAIXA DE TEXTO DE TRANSCRIÇÃO AO VIVO -->
+                <div id="transcriptContent" class="transcript-content">
+                    <div class="transcript-placeholder" id="placeholderText">
+                        <i>🗣️</i>
+                        <p>Clique em <strong>"Iniciar Gravação"</strong> e comece a falar.<br>Sua voz será filtrada e o texto aparecerá instantaneamente aqui!</p>
+                    </div>
+                </div>
+
+                <div class="transcript-actions">
+                    <button id="btnCopy" class="btn-xs" title="Copiar texto para a área de transferência">📋 Copiar Transcrição</button>
+                    <button id="btnClear" class="btn-xs" title="Limpar histórico da caixa de texto">🗑️ Limpar</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- RODAPÉ DE DIAGNÓSTICO EM TEMPO REAL -->
+        <footer class="app-footer">
+            <div style="font-weight: 600; color: var(--text-main);">🧪 Diagnóstico de Hardware & DSP:</div>
+            <div class="diagnostics-list">
+                <div class="diag-item">Sample Rate: <span id="diagRate">48000 Hz</span></div>
+                <div class="diag-item">Canais: <span id="diagChannels">Mono (1)</span></div>
+                <div class="diag-item">Codec RAM: <span id="diagCodec">audio/webm;codecs=opus</span></div>
+                <div class="diag-item">Speech API: <span id="diagSpeech">Suportado</span></div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Módulo JS Principal -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
