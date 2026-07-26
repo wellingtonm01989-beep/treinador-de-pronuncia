@@ -270,16 +270,22 @@ export class AudioCaptureModule {
             // CAMADA 4 (Início da Transcrição): Após o getUserMedia abrir o microfone em modo compartilhado (MIC),
             // iniciamos a transcrição em 100ms para garantir que o fluxo de gravação esteja 100% ativo e sem conflito de hardware!
             if (this.speechRecognition) {
+                console.log('[SpeechRecognition] Agendando disparo do motor de transcrição para 100ms...');
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
+                            console.log('[SpeechRecognition] Executando comando speechRecognition.start()...');
                             this.speechRecognition.start();
-                            console.log('[SpeechRecognition] Reconhecimento de voz iniciado após estabilização de áudio!');
+                            console.log('[SpeechRecognition] Comando .start() acionado sem exceções imediatas!');
                         } catch (e) {
-                            console.warn(`[SpeechRecognition] Exceção/Aviso no início da transcrição: ${e.message || e}`);
+                            console.error(`[SpeechRecognition] Exceção crítica ao executar .start(): ${e.message || e}`);
                         }
+                    } else {
+                        console.warn('[SpeechRecognition] Disparo cancelado: gravação foi pausada ou encerrada antes dos 100ms.');
                     }
                 }, 100);
+            } else {
+                console.error('[SpeechRecognition] IMPOSSÍVEL iniciar transcrição: objeto speechRecognition é NULO (API não suportada ou desativada)!');
             }
 
             // Atualiza estados e cronômetro
