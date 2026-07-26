@@ -182,12 +182,18 @@ export class AudioCaptureModule {
             }
 
             // CAMADA 1: Supressão Nativa via MediaStream Constraints
-            // No mobile, evitamos forçar sampleRate 48kHz para não quebrar a concorrência de áudio com o Web Speech
+            // CRÍTICO NO CELULAR: No Android e iOS, ativar echoCancellation ou noiseSuppression no getUserMedia
+            // aciona o modo exclusivo de hardware (AudioSource.VOICE_COMMUNICATION no Android / Voice Processing no iOS),
+            // o que FAZ O SISTEMA OPERACIONAL SILENCIAR COMPLETAMENTE o Google Web Speech API (SpeechRecognition)!
+            // Por isso, no mobile, desativamos obrigatoriamente as constraints nativas do WebRTC,
+            // usando o modo de microfone compartilhado (AudioSource.MIC) para que gravação e transcrição funcionem juntos.
+            const useNativeSuppression = isMobile ? false : this.nativeSuppressionEnabled;
+
             const constraints = {
                 audio: {
-                    noiseSuppression: this.nativeSuppressionEnabled,
-                    echoCancellation: this.nativeSuppressionEnabled,
-                    autoGainControl: this.nativeSuppressionEnabled,
+                    noiseSuppression: useNativeSuppression,
+                    echoCancellation: useNativeSuppression,
+                    autoGainControl: useNativeSuppression,
                     channelCount: 1, // Áudio mono é ideal para voz e processamento DSP
                     sampleRate: isMobile ? undefined : 48000
                 },
@@ -272,18 +278,19 @@ export class AudioCaptureModule {
             // Inicia coleta de chunks a cada 250ms para precisão de memória
             this.mediaRecorder.start(250);
 
-            // CAMADA 4 (Verificação Pós-Audio): No PC (Windows/Mac), garante o início caso não tenha sido iniciado
+            // CAMADA 4 (Verificação Pós-Audio): Após o getUserMedia abrir o microfone em modo compartilhado (MIC),
+            // iniciamos a transcrição em 50ms no celular e 400ms no PC para garantir concorrência harmônica sem silenciamento!
             if (this.speechRecognition) {
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
                             this.speechRecognition.start();
-                            console.log('[SpeechRecognition] Reconhecimento de voz verificado/iniciado via fallback!');
+                            console.log('[SpeechRecognition] Reconhecimento de voz verificado/iniciado após estabilização de áudio!');
                         } catch (e) {
                             console.debug('[SpeechRecognition] Falha ou já ativo via fallback (comportamento esperado):', e.message || e);
                         }
                     }
-                }, 400); // Delay para permitir que o driver de áudio do Windows libere a concorrência após getUserMedia
+                }, isMobile ? 50 : 400);
             }
 
             // Atualiza estados e cronômetro
@@ -358,15 +365,18 @@ export class AudioCaptureModule {
         this.nativeSuppressionEnabled = Boolean(enabled);
         console.log(`[AudioCaptureModule] Supressão Nativa (WebRTC) alterada para: ${this.nativeSuppressionEnabled}`);
 
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const useNativeSuppression = isMobile ? false : this.nativeSuppressionEnabled;
+
         // Se o fluxo estiver ativo, aplica as novas constraints em tempo real usando applyConstraints!
         if (this.stream && this.stream.getAudioTracks().length > 0) {
             const track = this.stream.getAudioTracks()[0];
             if (track && typeof track.applyConstraints === 'function') {
                 try {
                     await track.applyConstraints({
-                        noiseSuppression: this.nativeSuppressionEnabled,
-                        echoCancellation: this.nativeSuppressionEnabled,
-                        autoGainControl: this.nativeSuppressionEnabled
+                        noiseSuppression: useNativeSuppression,
+                        echoCancellation: useNativeSuppression,
+                        autoGainControl: useNativeSuppression
                     });
                     console.log('[AudioCaptureModule] Constraints nativas aplicadas à trilha ativa com sucesso!');
                 } catch (err) {
