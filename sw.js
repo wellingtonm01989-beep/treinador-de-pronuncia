@@ -3,7 +3,7 @@
  * Permite que o módulo VocalClean DSP funcione offline no GitHub Pages.
  */
 
-const CACHE_NAME = 'vocalclean-dsp-v20260726-fixbuttons';
+const CACHE_NAME = 'vocalclean-dsp-v20260726-autolang';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

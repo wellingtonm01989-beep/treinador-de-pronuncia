@@ -222,6 +222,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * Algoritmo de IA para Detecção Automática de Idioma baseado no texto gravado
+     */
+    function detectLanguageFromText(text) {
+        if (!text || typeof text !== 'string') return 'en-US';
+        const lower = text.toLowerCase();
+
+        const ptWords = ['que', 'para', 'como', 'esta', 'estao', 'está', 'estão', 'com', 'uma', 'um', 'nao', 'não', 'mais', 'por', 'meu', 'minha', 'voce', 'você', 'eles', 'elas', 'isso', 'aqui', 'tudo', 'desligar', 'microfone', 'gravação', 'gravacao'];
+        const enWords = ['the', 'and', 'you', 'that', 'was', 'for', 'are', 'with', 'his', 'they', 'this', 'have', 'from', 'one', 'had', 'by', 'word', 'but', 'not', 'what', 'all', 'were', 'when', 'your', 'can', 'said', 'there', 'use', 'how', 'their', 'if', 'will', 'other', 'about', 'out', 'many', 'then', 'them', 'these', 'some', 'would', 'make', 'like', 'into', 'time', 'look'];
+        const esWords = ['que', 'para', 'como', 'esta', 'estamos', 'con', 'una', 'uno', 'mas', 'por', 'mi', 'usted', 'ellos', 'ellas', 'esto', 'aqui', 'todo', 'gracias', 'hola', 'buenas', 'dias'];
+        const frWords = ['les', 'des', 'est', 'dans', 'pour', 'pas', 'une', 'avec', 'sur', 'mais', 'nous', 'vous', 'ils', 'elles', 'cette', 'tout', 'merci', 'bonjour'];
+
+        const words = lower.match(/\b\w+\b/g) || [];
+        let ptCount = 0, enCount = 0, esCount = 0, frCount = 0;
+
+        words.forEach(w => {
+            if (ptWords.includes(w)) ptCount += 2;
+            if (enWords.includes(w)) enCount += 2;
+            if (esWords.includes(w)) esCount += 2;
+            if (frWords.includes(w)) frCount += 2;
+        });
+
+        if (/[ãõçáéíóúâêô]/i.test(lower)) ptCount += 3;
+
+        if (ptCount > enCount && ptCount > esCount && ptCount > frCount) return 'pt-BR';
+        if (enCount > ptCount && enCount > esCount && enCount > frCount) return 'en-US';
+        if (esCount > ptCount && esCount > enCount && esCount > frCount) return 'es-ES';
+        if (frCount > ptCount && frCount > enCount && frCount > esCount) return 'fr-FR';
+
+        return (navigator.language && navigator.language.startsWith('pt')) ? 'pt-BR' : 'en-US';
+    }
+
+    /**
      * 3. RENDERIZAÇÃO DA TRANSCRIÇÃO FINAL UNIFICADA (1 ÚNICA LINHA POR GRAVAÇÃO)
      */
     function renderTranscriptArea(isLive = false) {
@@ -232,12 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const textStr = typeof item === 'string' ? item : item.text;
             const confVal = typeof item === 'string' ? 95 : item.confidence;
             const alts = typeof item === 'string' ? [] : item.alternatives;
+            const langBadge = item.langBadge ? `<span class="badge cyan" style="font-size:0.7rem; margin-right:0.4rem;">${item.langBadge}</span>` : '';
 
             const div = document.createElement('div');
             div.className = 'transcript-final';
             
             const confClass = confVal < 88 ? 'medium' : '';
-            div.innerHTML = `<div><span>${textStr}</span> <span class="transcript-confidence ${confClass}">🎯 ${confVal}% Confiança</span></div>`;
+            div.innerHTML = `<div>${langBadge}<span>${textStr}</span> <span class="transcript-confidence ${confClass}">🎯 ${confVal}% Confiança</span></div>`;
             
             if (alts && alts.length > 1) {
                 const altsDiv = document.createElement('div');
@@ -320,11 +353,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const unifiedText = sessionChunks.join(' ').replace(/\s+/g, ' ').trim();
                 
                 if (unifiedText) {
+                    const selectedLang = langSelector ? langSelector.value : 'auto';
+                    let detectedLang = selectedLang;
+                    if (selectedLang === 'auto') {
+                        detectedLang = detectLanguageFromText(unifiedText);
+                        console.log(`[App] 🌐 Detecção Automática de Idioma identificou: ${detectedLang}`);
+                    }
+
+                    const flagMap = { 'en-US': '🇺🇸 Inglês', 'en-GB': '🇬🇧 Inglês (UK)', 'pt-BR': '🇧🇷 Português', 'es-ES': '🇪🇸 Espanhol', 'fr-FR': '🇫🇷 Francês' };
+                    const langBadge = flagMap[detectedLang] || detectedLang;
+
                     const exists = transcriptHistory.some(item => (typeof item === 'string' ? item : item.text) === unifiedText);
                     if (!exists) {
                         transcriptHistory.push({
                             text: unifiedText,
                             confidence: lastConfidence || 96,
+                            langBadge: langBadge,
                             alternatives: lastAlternatives || []
                         });
                     }
@@ -379,13 +423,13 @@ document.addEventListener('DOMContentLoaded', () => {
         boxDsp.classList.toggle('active', e.target.checked);
     });
 
-    // Seletor Inteligente de Idiomas (Foco em Inglês/Multilingue)
+    // Seletor Inteligente de Idiomas (Suporta Auto-Detecção)
     if (langSelector) {
         langSelector.addEventListener('change', (e) => {
             const newLang = e.target.value;
             audioModule.setLanguage(newLang);
             if (speechStatus) {
-                const flagMap = { 'en-US': '🇺🇸 en-US', 'en-GB': '🇬🇧 en-GB', 'pt-BR': '🇧🇷 pt-BR', 'es-ES': '🇪🇸 es-ES', 'fr-FR': '🇫🇷 fr-FR' };
+                const flagMap = { 'auto': '🌐 Auto-Detectar', 'en-US': '🇺🇸 en-US', 'en-GB': '🇬🇧 en-GB', 'pt-BR': '🇧🇷 pt-BR', 'es-ES': '🇪🇸 es-ES', 'fr-FR': '🇫🇷 fr-FR' };
                 speechStatus.textContent = `${flagMap[newLang] || newLang} Ativo`;
             }
         });

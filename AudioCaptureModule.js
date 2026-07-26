@@ -68,7 +68,7 @@ export class AudioCaptureModule {
         
         // Configurações otimizadas para conversação contínua no PC e Celular
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        this.speechRecognition.lang = this.lang;
+        this.speechRecognition.lang = (this.lang === 'auto' ? (navigator.language || 'en-US') : this.lang);
         this.speechRecognition.continuous = true;
         this.speechRecognition.interimResults = true;
         // No mobile, 1 alternativa reduz drasticamente a latência e evita timeouts em redes móveis (3G/4G/5G)
@@ -461,9 +461,10 @@ export class AudioCaptureModule {
      */
     setLanguage(lang) {
         this.lang = lang;
-        console.log(`[AudioCaptureModule] Idioma de transcrição atualizado para: ${this.lang}`);
+        const targetLang = (lang === 'auto' ? (navigator.language || 'en-US') : lang);
+        console.log(`[AudioCaptureModule] Idioma de transcrição atualizado para: ${this.lang} (Target: ${targetLang})`);
         if (this.speechRecognition) {
-            this.speechRecognition.lang = this.lang;
+            this.speechRecognition.lang = targetLang;
             if (this.isRecording && !this.isPaused) {
                 try {
                     this.speechRecognition.stop(); // O evento onend religará automaticamente o motor no novo idioma!
