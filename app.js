@@ -391,26 +391,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Botões Auxiliares da Transcrição
+    // Botões Auxiliares da Transcrição (Copiar & Limpar)
     btnCopy.addEventListener('click', () => {
-        const fullText = transcriptHistory.map(i => typeof i === 'string' ? i : i.text).join(' ');
-        if (!fullText) return;
+        const historyText = transcriptHistory.map(i => typeof i === 'string' ? i : i.text).join('\n');
+        const activeText = sessionChunks.join(' ');
+        const fullText = [historyText, activeText].filter(Boolean).join('\n').trim();
 
-        navigator.clipboard.writeText(fullText).then(() => {
+        if (!fullText) {
+            console.warn('[App] Nada para copiar: transcrição está vazia.');
+            return;
+        }
+
+        const copySuccess = () => {
             const originalText = btnCopy.innerHTML;
             btnCopy.innerHTML = '<span>✅</span> <span>Copiado!</span>';
             setTimeout(() => btnCopy.innerHTML = originalText, 2000);
-        });
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(fullText).then(copySuccess).catch(() => {
+                fallbackCopyText(fullText, copySuccess);
+            });
+        } else {
+            fallbackCopyText(fullText, copySuccess);
+        }
     });
+
+    function fallbackCopyText(text, callback) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            if (callback) callback();
+        } catch (err) {
+            console.error('[App] Falha ao copiar texto:', err);
+        }
+        document.body.removeChild(textarea);
+    }
 
     btnClear.addEventListener('click', () => {
         transcriptHistory = [];
-        currentSessionData = { text: '', isFinal: false, confidence: 96, alternatives: [] };
+        sessionChunks = [];
+        pendingInterim = '';
         transcriptContent.innerHTML = '';
         if (placeholderText) {
             placeholderText.style.display = 'flex';
             transcriptContent.appendChild(placeholderText);
         }
+        console.log('[App] Histórico de transcrição limpo com sucesso.');
     });
 
     /**
