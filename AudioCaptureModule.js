@@ -74,7 +74,36 @@ export class AudioCaptureModule {
         // No mobile, 1 alternativa reduz drasticamente a latência e evita timeouts em redes móveis (3G/4G/5G)
         this.speechRecognition.maxAlternatives = isMobile ? 1 : 5;
 
+        this.speechRecognition.onstart = () => {
+            console.log('[SpeechRecognition] 🟢 Evento ONSTART: O motor Google Speech está ativo e escutando!');
+        };
+
+        this.speechRecognition.onaudiostart = () => {
+            console.log('[SpeechRecognition] 🟢 Evento ONAUDIOSTART: Motor conectou ao fluxo de áudio do microfone.');
+        };
+
+        this.speechRecognition.onsoundstart = () => {
+            console.log('[SpeechRecognition] 🔊 Evento ONSOUNDSTART: Vibração acústica (som) detectada pelo motor!');
+        };
+
+        this.speechRecognition.onspeechstart = () => {
+            console.log('[SpeechRecognition] 🗣️ Evento ONSPEECHSTART: Voz humana detectada! Processando palavras...');
+        };
+
+        this.speechRecognition.onspeechend = () => {
+            console.log('[SpeechRecognition] 🛑 Evento ONSPEECHEND: Fim da fala detectado. Aguardando tradução textual...');
+        };
+
+        this.speechRecognition.onaudioend = () => {
+            console.log('[SpeechRecognition] 🛑 Evento ONAUDIOEND: Motor parou de receber fluxo de áudio.');
+        };
+
+        this.speechRecognition.onomatch = () => {
+            console.warn('[SpeechRecognition] 🟡 Evento ONOMATCH: Som detectado, mas a IA não identificou nenhuma palavra clara.');
+        };
+
         this.speechRecognition.onresult = (event) => {
+            console.log(`[SpeechRecognition] ✨ Evento ONRESULT: Recebido pacote com ${event.results.length} resultado(s) da Google!`);
             let interimTranscript = '';
             let finalTranscript = '';
             let bestConfidence = 0;
@@ -98,6 +127,8 @@ export class AudioCaptureModule {
                 }
             }
 
+            console.log(`[SpeechRecognition] Texto decodificado -> Final: "${finalTranscript}", Interino: "${interimTranscript}"`);
+
             if (finalTranscript || interimTranscript) {
                 this.onTranscript({
                     final: finalTranscript.trim(),
@@ -112,10 +143,10 @@ export class AudioCaptureModule {
         this.speechRecognition.onerror = (event) => {
             // Se o erro for apenas "no-speech" ou "aborted", não encerramos a gravação de áudio
             if (event.error === 'no-speech' || event.error === 'aborted') {
-                console.log(`[SpeechRecognition] Evento normal de escuta/pausa (${event.error}).`);
+                console.warn(`[SpeechRecognition] 🟡 Evento ONERROR de pausa/silêncio: ${event.error}`);
                 return;
             }
-            console.error(`[SpeechRecognition] Exceção/Erro na Transcrição: ${event.error} (detalhe: ${event.message || 'sem detalhes adicionais'})`);
+            console.error(`[SpeechRecognition] 🔴 Evento ONERROR CRÍTICO: ${event.error} (detalhe: ${event.message || 'sem detalhes adicionais'})`);
             // No mobile, erros transitórios de rede ou concorrência de áudio não devem desativar o módulo de gravação
             if (event.error !== 'aborted' && event.error !== 'service-not-allowed') {
                 this.onError(new Error(`Erro de Transcrição: ${event.error}`), 'speech_recognition');
@@ -125,14 +156,17 @@ export class AudioCaptureModule {
         // Reconhecimento de voz em navegadores como Chrome encerra automaticamente em silêncio.
         // Reativamos automaticamente se o usuário ainda estiver com a gravação ativa!
         this.speechRecognition.onend = () => {
+            console.log('[SpeechRecognition] ⚪ Evento ONEND: Motor foi desconectado ou encerrou o ciclo de escuta.');
             if (this.isRecording && !this.isPaused) {
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                console.log(`[SpeechRecognition] 🔄 Tentando reconectar o motor automaticamente em ${isMobile ? 150 : 300}ms...`);
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
                             this.speechRecognition.start();
+                            console.log('[SpeechRecognition] 🟢 Motor religado com sucesso pelo ONEND!');
                         } catch (e) {
-                            console.warn(`[SpeechRecognition] Aviso na reativação automática (silêncio/pausa): ${e.message || e}`);
+                            console.warn(`[SpeechRecognition] 🟡 Aviso na reativação pelo ONEND: ${e.message || e}`);
                         }
                     }
                 }, isMobile ? 150 : 300);
