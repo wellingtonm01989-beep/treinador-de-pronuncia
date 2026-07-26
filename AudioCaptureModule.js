@@ -204,12 +204,22 @@ export class AudioCaptureModule {
 
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+            // CRÍTICO NO CELULAR (ANDROD/IOS): O mixer do Android (AudioFlinger) muta o segundo processo a requisitar o microfone.
+            // Por isso, no Mobile, nós INICIAMOS A TRANSCRIÇÃO PRIMEIRO para que o Google Speech Services (serviço privilegiado do sistema)
+            // garanta a posse primária do microfone antes do WebAudio/MediaRecorder se conectar como secundário!
+            if (isMobile && this.speechRecognition) {
+                console.log('[SpeechRecognition] 📱 Modo Mobile: Disparando motor de voz PRIMEIRO para garantir posse do microfone...');
+                try {
+                    this.speechRecognition.start();
+                    console.log('[SpeechRecognition] 🟢 Comando .start() acionado com prioridade primária de hardware!');
+                } catch (e) {
+                    console.error(`[SpeechRecognition] Exceção na inicialização primaria: ${e.message || e}`);
+                }
+                // Aguarda 400ms para o serviço do Google consolidar o socket de escuta no kernel antes do getUserMedia
+                await new Promise(resolve => setTimeout(resolve, 400));
+            }
+
             // CAMADA 1: Supressão Nativa via MediaStream Constraints
-            // CRÍTICO NO CELULAR: No Android e iOS, ativar echoCancellation ou noiseSuppression no getUserMedia
-            // aciona o modo exclusivo de hardware (AudioSource.VOICE_COMMUNICATION no Android / Voice Processing no iOS),
-            // o que FAZ O SISTEMA OPERACIONAL SILENCIAR COMPLETAMENTE o Google Web Speech API (SpeechRecognition)!
-            // Por isso, no mobile, desativamos obrigatoriamente as constraints nativas do WebRTC,
-            // usando o modo de microfone compartilhado (AudioSource.MIC) para que gravação e transcrição funcionem juntos.
             const useNativeSuppression = isMobile ? false : this.nativeSuppressionEnabled;
 
             const constraints = {
@@ -301,10 +311,10 @@ export class AudioCaptureModule {
             // Inicia coleta de chunks a cada 250ms para precisão de memória
             this.mediaRecorder.start(250);
 
-            // CAMADA 4 (Início da Transcrição): Após o getUserMedia abrir o microfone em modo compartilhado (MIC),
-            // iniciamos a transcrição em 100ms para garantir que o fluxo de gravação esteja 100% ativo e sem conflito de hardware!
-            if (this.speechRecognition) {
-                console.log('[SpeechRecognition] Agendando disparo do motor de transcrição para 100ms...');
+            // CAMADA 4 (Início da Transcrição no PC): No Desktop, iniciamos após o getUserMedia.
+            // No Mobile, já iniciamos no topo da função com prioridade de hardware!
+            if (!isMobile && this.speechRecognition) {
+                console.log('[SpeechRecognition] 🖥️ Modo Desktop: Agendando disparo do motor de transcrição...');
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
@@ -314,13 +324,13 @@ export class AudioCaptureModule {
                         } catch (e) {
                             console.error(`[SpeechRecognition] Exceção crítica ao executar .start(): ${e.message || e}`);
                         }
-                    } else {
-                        console.warn('[SpeechRecognition] Disparo cancelado: gravação foi pausada ou encerrada antes dos 100ms.');
                     }
                 }, 100);
-            } else {
+            } else if (!this.speechRecognition) {
                 console.error('[SpeechRecognition] IMPOSSÍVEL iniciar transcrição: objeto speechRecognition é NULO (API não suportada ou desativada)!');
             }
+
+            // Atualiza estados e cronômetro
 
             // Atualiza estados e cronômetro
             this.isRecording = true;
