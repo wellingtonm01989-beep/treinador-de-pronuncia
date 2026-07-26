@@ -66,11 +66,13 @@ export class AudioCaptureModule {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.speechRecognition = new SpeechRecognition();
         
-        // Configurações para conversação contínua e em tempo real
+        // Configurações otimizadas para conversação contínua no PC e Celular
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         this.speechRecognition.lang = this.lang;
         this.speechRecognition.continuous = true;
         this.speechRecognition.interimResults = true;
-        this.speechRecognition.maxAlternatives = 5; // Aumenta inteligência acionando 5 suposições fonéticas do algoritmo
+        // No mobile, 1 alternativa reduz drasticamente a latência e evita timeouts em redes móveis (3G/4G/5G)
+        this.speechRecognition.maxAlternatives = isMobile ? 1 : 5;
 
         this.speechRecognition.onresult = (event) => {
             let interimTranscript = '';
@@ -108,13 +110,14 @@ export class AudioCaptureModule {
         };
 
         this.speechRecognition.onerror = (event) => {
-            // Se o erro for apenas "no-speech", não encerramos a gravação de áudio
-            if (event.error === 'no-speech') {
-                console.log('[SpeechRecognition] Silêncio detectado aguardando fala...');
+            // Se o erro for apenas "no-speech" ou "aborted", não encerramos a gravação de áudio
+            if (event.error === 'no-speech' || event.error === 'aborted') {
+                console.log(`[SpeechRecognition] Evento normal de escuta/pausa (${event.error})...`);
                 return;
             }
             console.warn(`[SpeechRecognition] Aviso/Erro: ${event.error}`);
-            if (event.error !== 'aborted') {
+            // No mobile, erros transitórios de rede ou concorrência de áudio não devem desativar o módulo de gravação
+            if (event.error !== 'aborted' && event.error !== 'service-not-allowed') {
                 this.onError(new Error(`Erro de Transcrição: ${event.error}`), 'speech_recognition');
             }
         };
@@ -123,6 +126,7 @@ export class AudioCaptureModule {
         // Reativamos automaticamente se o usuário ainda estiver com a gravação ativa!
         this.speechRecognition.onend = () => {
             if (this.isRecording && !this.isPaused) {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
@@ -131,7 +135,7 @@ export class AudioCaptureModule {
                             console.debug('[SpeechRecognition] Reinício automático ignorado (já em execução ou falha transitória).');
                         }
                     }
-                }, 300);
+                }, isMobile ? 150 : 300);
             }
         };
     }
@@ -164,14 +168,28 @@ export class AudioCaptureModule {
         try {
             this.onStateChange('initializing');
 
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            // CAMADA 4 (Disparo Síncrono Imediato): No mobile, iniciar o SpeechRecognition ANTES do getUserMedia
+            // preserva o token de gesto do usuário (User Activation) e garante prioridade de hardware de áudio
+            if (this.speechRecognition) {
+                try {
+                    this.speechRecognition.start();
+                    console.log('[SpeechRecognition] Reconhecimento de voz iniciado síncrono no gesto do usuário!');
+                } catch (e) {
+                    console.warn('[SpeechRecognition] Falha ou já em execução no disparo síncrono:', e);
+                }
+            }
+
             // CAMADA 1: Supressão Nativa via MediaStream Constraints
+            // No mobile, evitamos forçar sampleRate 48kHz para não quebrar a concorrência de áudio com o Web Speech
             const constraints = {
                 audio: {
                     noiseSuppression: this.nativeSuppressionEnabled,
                     echoCancellation: this.nativeSuppressionEnabled,
                     autoGainControl: this.nativeSuppressionEnabled,
                     channelCount: 1, // Áudio mono é ideal para voz e processamento DSP
-                    sampleRate: 48000
+                    sampleRate: isMobile ? undefined : 48000
                 },
                 video: false
             };
@@ -254,15 +272,15 @@ export class AudioCaptureModule {
             // Inicia coleta de chunks a cada 250ms para precisão de memória
             this.mediaRecorder.start(250);
 
-            // CAMADA 4: Transcrição de Voz Nativa em Tempo Real
+            // CAMADA 4 (Verificação Pós-Audio): No PC (Windows/Mac), garante o início caso não tenha sido iniciado
             if (this.speechRecognition) {
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
                             this.speechRecognition.start();
-                            console.log('[SpeechRecognition] Reconhecimento de voz iniciado com sucesso!');
+                            console.log('[SpeechRecognition] Reconhecimento de voz verificado/iniciado via fallback!');
                         } catch (e) {
-                            console.warn('[SpeechRecognition] Falha ao iniciar reconhecimento de voz no start:', e);
+                            console.debug('[SpeechRecognition] Falha ou já ativo via fallback (comportamento esperado):', e.message || e);
                         }
                     }
                 }, 400); // Delay para permitir que o driver de áudio do Windows libere a concorrência após getUserMedia
