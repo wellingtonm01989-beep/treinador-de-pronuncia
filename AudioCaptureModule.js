@@ -170,17 +170,6 @@ export class AudioCaptureModule {
 
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-            // CAMADA 4 (Disparo Síncrono Imediato): No mobile, iniciar o SpeechRecognition ANTES do getUserMedia
-            // preserva o token de gesto do usuário (User Activation) e garante prioridade de hardware de áudio
-            if (this.speechRecognition) {
-                try {
-                    this.speechRecognition.start();
-                    console.log('[SpeechRecognition] Reconhecimento de voz iniciado síncrono no gesto do usuário!');
-                } catch (e) {
-                    console.warn('[SpeechRecognition] Falha ou já em execução no disparo síncrono:', e);
-                }
-            }
-
             // CAMADA 1: Supressão Nativa via MediaStream Constraints
             // CRÍTICO NO CELULAR: No Android e iOS, ativar echoCancellation ou noiseSuppression no getUserMedia
             // aciona o modo exclusivo de hardware (AudioSource.VOICE_COMMUNICATION no Android / Voice Processing no iOS),
@@ -278,19 +267,19 @@ export class AudioCaptureModule {
             // Inicia coleta de chunks a cada 250ms para precisão de memória
             this.mediaRecorder.start(250);
 
-            // CAMADA 4 (Verificação Pós-Audio): Após o getUserMedia abrir o microfone em modo compartilhado (MIC),
-            // iniciamos a transcrição em 50ms no celular e 400ms no PC para garantir concorrência harmônica sem silenciamento!
+            // CAMADA 4 (Início da Transcrição): Após o getUserMedia abrir o microfone em modo compartilhado (MIC),
+            // iniciamos a transcrição em 100ms para garantir que o fluxo de gravação esteja 100% ativo e sem conflito de hardware!
             if (this.speechRecognition) {
                 setTimeout(() => {
                     if (this.isRecording && !this.isPaused) {
                         try {
                             this.speechRecognition.start();
-                            console.log('[SpeechRecognition] Reconhecimento de voz verificado/iniciado após estabilização de áudio!');
+                            console.log('[SpeechRecognition] Reconhecimento de voz iniciado após estabilização de áudio!');
                         } catch (e) {
-                            console.debug('[SpeechRecognition] Falha ou já ativo via fallback (comportamento esperado):', e.message || e);
+                            console.debug('[SpeechRecognition] Aviso no início da transcrição:', e.message || e);
                         }
                     }
-                }, isMobile ? 50 : 400);
+                }, 100);
             }
 
             // Atualiza estados e cronômetro

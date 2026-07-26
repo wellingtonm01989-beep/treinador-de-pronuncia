@@ -3,7 +3,7 @@
  * Permite que o módulo VocalClean DSP funcione offline no GitHub Pages.
  */
 
-const CACHE_NAME = 'vocalclean-dsp-v1';
+const CACHE_NAME = 'vocalclean-dsp-v20260726-final';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -41,14 +41,25 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Retorna do cache se disponível, ou busca da rede
-      return response || fetch(event.request).catch(() => {
-        // Fallback para index.html se estiver offline e requisitando HTML
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
+    fetch(event.request)
+      .then((networkResponse) => {
+        // Se a rede respondeu com sucesso (200 OK), atualiza o cache e retorna a nova versão!
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        // Se o celular estiver offline, busca do cache local
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
   );
 });
