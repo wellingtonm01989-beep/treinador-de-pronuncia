@@ -569,7 +569,9 @@ async function downloadMp3Audio() {
         showCompatibilityAlert('Não foi possível gerar o áudio no momento. Verifique sua conexão com a internet.');
     } finally {
         isRecordingForDownload = false;
-        resetDownloadUI();
+        DOM.btnDownload.disabled = false;
+        DOM.btnDownload.classList.remove('is-recording');
+        DOM.downloadBtnText.textContent = 'Baixar MP3';
     }
 }
 
