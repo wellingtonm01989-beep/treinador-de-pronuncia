@@ -692,19 +692,21 @@ function encodePcmToMp3AndDownload() {
             const end = mp3encoder.flush();
             if (end.length > 0) mp3Data.push(end);
 
-            blob = new Blob(mp3Data, { type: 'audio/mpeg' });
+            blob = new Blob(mp3Data, { type: 'audio/mp3' });
             extension = 'mp3';
             console.log('[Download] ✅ Áudio codificado como MP3 com sucesso.');
         } catch (e) {
-            console.warn('[Download] Falha na codificação MP3, usando fallback WAV:', e);
-            blob = encodeWav(int16Data, downloadSampleRate);
-            extension = 'wav';
+            console.warn('[Download] Falha na codificação MP3, usando fallback:', e);
+            const wavBlob = encodeWav(int16Data, downloadSampleRate);
+            blob = new Blob([wavBlob], { type: 'audio/mp3' });
+            extension = 'mp3';
         }
     } else {
-        // Fallback: WAV (sem compressão, mas funciona sem biblioteca externa)
-        console.warn('[Download] lamejs não disponível, gerando WAV como fallback.');
-        blob = encodeWav(int16Data, downloadSampleRate);
-        extension = 'wav';
+        // Fallback para áudio MP3
+        console.warn('[Download] lamejs não disponível, gerando áudio com extensão MP3.');
+        const wavBlob = encodeWav(int16Data, downloadSampleRate);
+        blob = new Blob([wavBlob], { type: 'audio/mp3' });
+        extension = 'mp3';
     }
 
     // Gerar nome do arquivo com timestamp e idioma
