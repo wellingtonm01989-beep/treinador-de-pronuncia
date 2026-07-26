@@ -107,7 +107,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Estado local da Transcrição
     let transcriptHistory = [];
+    let currentSessionData = { text: '', isFinal: false, confidence: 96, alternatives: [] };
     let animationFrameId = null;
+
+    function commitCurrentSessionTranscript() {
+        if (currentSessionData.text && currentSessionData.text.trim()) {
+            const textStr = currentSessionData.text.trim();
+            const exists = transcriptHistory.some(item => (typeof item === 'string' ? item : item.text) === textStr);
+            if (!exists) {
+                transcriptHistory.push({
+                    text: textStr,
+                    confidence: currentSessionData.confidence || 96,
+                    alternatives: currentSessionData.alternatives || []
+                });
+            }
+        }
+        currentSessionData = { text: '', isFinal: false, confidence: 96, alternatives: [] };
+    }
 
     /**
      * 1. INICIALIZAÇÃO DO MÓDULO DE ÁUDIO (DEFESA EM CAMADAS & IA VOCAL)
@@ -173,6 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
             btnRecord.className = 'btn btn-record';
             recordBtnText.textContent = 'Iniciar Gravação';
             audioLevelText.textContent = 'Nível: -∞ dB';
+
+            // Consolida a frase única da sessão encerrada no histórico permanente
+            commitCurrentSessionTranscript();
+            renderTranscript('', '', 0, [], audioModule.lang);
         }
         else if (state === 'error') {
             statusDot.className = 'status-dot';
@@ -185,26 +205,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * 3. RENDERIZAÇÃO DA TRANSCRIÇÃO EM TEMPO REAL & ANÁLISE DE PRONÚNCIA
+     * MANTÉM EXATAMENTE UMA ÚNICA LINHA/CARD POR GRAVAÇÃO!
      */
     function renderTranscript(finalText, interimText, confidence = 0, alternatives = [], lang = 'en-US') {
-        if (placeholderText) placeholderText.style.display = 'none';
-
-        if (finalText) {
-            // Verifica se a frase já foi adicionada para evitar repetição
-            const exists = transcriptHistory.some(item => (typeof item === 'string' ? item : item.text) === finalText);
-            if (!exists) {
-                transcriptHistory.push({
-                    text: finalText,
-                    confidence: confidence || 96,
-                    alternatives: alternatives || []
-                });
-            }
+        if (placeholderText && (transcriptHistory.length > 0 || finalText || interimText || currentSessionData.text)) {
+            placeholderText.style.display = 'none';
         }
 
-        // Limpa e reconstrói o box para manter a ordem limpa do diálogo
+        // Atualiza o card único da gravação atual em tempo real
+        if (finalText) {
+            currentSessionData.text = finalText;
+            currentSessionData.isFinal = true;
+            if (confidence) currentSessionData.confidence = confidence;
+            if (alternatives && alternatives.length) currentSessionData.alternatives = alternatives;
+        } else if (interimText) {
+            currentSessionData.text = interimText;
+            currentSessionData.isFinal = false;
+            if (confidence) currentSessionData.confidence = confidence;
+            if (alternatives && alternatives.length) currentSessionData.alternatives = alternatives;
+        }
+
+        // Reconstrói a área visual mantendo apenas UMA linha ativa por gravação
         transcriptContent.innerHTML = '';
 
-        // Renderiza blocos finalizados (Estilo Treinador / Duolingo)
+        // 1. Renderiza frases de gravações anteriores completadas
         transcriptHistory.forEach(item => {
             const textStr = typeof item === 'string' ? item : item.text;
             const confVal = typeof item === 'string' ? 95 : item.confidence;
@@ -213,11 +237,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement('div');
             div.className = 'transcript-final';
             
-            // Texto Principal e Selo de Confiança IA
             const confClass = confVal < 88 ? 'medium' : '';
-            div.innerHTML = `<div><span>${textStr}</span> <span class="transcript-confidence ${confClass}" title="Taxa de precisão calculada pelo algoritmo de voz">🎯 ${confVal}% Confiança</span></div>`;
+            div.innerHTML = `<div><span>${textStr}</span> <span class="transcript-confidence ${confClass}">🎯 ${confVal}% Confiança</span></div>`;
             
-            // Renderiza alternativas fonéticas capturadas pelo algoritmo (se houver)
             if (alts && alts.length > 1) {
                 const altsDiv = document.createElement('div');
                 altsDiv.className = 'transcript-alts';
@@ -228,15 +250,28 @@ document.addEventListener('DOMContentLoaded', () => {
             transcriptContent.appendChild(div);
         });
 
-        // Renderiza texto intermediário (em digitação/análise ao vivo)
-        if (interimText) {
-            const interimDiv = document.createElement('div');
-            interimDiv.className = 'transcript-interim';
-            interimDiv.textContent = interimText + ' ...';
-            transcriptContent.appendChild(interimDiv);
+        // 2. Renderiza o CARD ÚNICO DA GRAVAÇÃO ATUAL (atualizado ao vivo a cada palavra nova)
+        if (currentSessionData.text) {
+            const div = document.createElement('div');
+            div.className = currentSessionData.isFinal ? 'transcript-final' : 'transcript-final live-updating';
+            
+            const confVal = currentSessionData.confidence || 96;
+            const confClass = confVal < 88 ? 'medium' : '';
+            const liveBadge = !currentSessionData.isFinal ? ' <span style="font-size:0.75rem; color:var(--secondary); font-style:italic;">(Ao Vivo)</span>' : '';
+
+            div.innerHTML = `<div><span>${currentSessionData.text}</span>${liveBadge} <span class="transcript-confidence ${confClass}">🎯 ${confVal}% Confiança</span></div>`;
+            
+            if (currentSessionData.alternatives && currentSessionData.alternatives.length > 1) {
+                const altsDiv = document.createElement('div');
+                altsDiv.className = 'transcript-alts';
+                altsDiv.innerHTML = `<span>💡 Outras percepções da IA:</span> ` + currentSessionData.alternatives.slice(1).map(a => `<span class="alt-chip">${a.text} (${a.confidence}%)</span>`).join('');
+                div.appendChild(altsDiv);
+            }
+
+            transcriptContent.appendChild(div);
         }
 
-        // Rolagem automática suave para a última frase
+        // Rolagem automática suave
         transcriptContent.scrollTop = transcriptContent.scrollHeight;
     }
 
@@ -339,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnClear.addEventListener('click', () => {
         transcriptHistory = [];
+        currentSessionData = { text: '', isFinal: false, confidence: 96, alternatives: [] };
         transcriptContent.innerHTML = '';
         if (placeholderText) {
             placeholderText.style.display = 'flex';
