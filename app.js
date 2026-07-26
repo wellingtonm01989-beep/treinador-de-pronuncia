@@ -107,23 +107,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Estado local da Transcrição
     let transcriptHistory = [];
-    let currentSessionData = { text: '', isFinal: false, confidence: 96, alternatives: [] };
+    let sessionChunks = [];
+    let pendingInterim = '';
+    let lastConfidence = 96;
+    let lastAlternatives = [];
+    let isProcessingUnification = false;
     let animationFrameId = null;
-
-    function commitCurrentSessionTranscript() {
-        if (currentSessionData.text && currentSessionData.text.trim()) {
-            const textStr = currentSessionData.text.trim();
-            const exists = transcriptHistory.some(item => (typeof item === 'string' ? item : item.text) === textStr);
-            if (!exists) {
-                transcriptHistory.push({
-                    text: textStr,
-                    confidence: currentSessionData.confidence || 96,
-                    alternatives: currentSessionData.alternatives || []
-                });
-            }
-        }
-        currentSessionData = { text: '', isFinal: false, confidence: 96, alternatives: [] };
-    }
 
     /**
      * 1. INICIALIZAÇÃO DO MÓDULO DE ÁUDIO (DEFESA EM CAMADAS & IA VOCAL)
@@ -135,7 +124,27 @@ document.addEventListener('DOMContentLoaded', () => {
             updateDiagnostics();
         },
         onTranscript: ({ final, interim, confidence, alternatives, lang }) => {
-            renderTranscript(final, interim, confidence, alternatives, lang);
+            if (confidence) lastConfidence = confidence;
+            if (alternatives && alternatives.length) lastAlternatives = alternatives;
+
+            if (final && final.trim()) {
+                const clean = final.trim();
+                if (!sessionChunks.length) {
+                    sessionChunks.push(clean);
+                } else {
+                    const last = sessionChunks[sessionChunks.length - 1];
+                    if (clean.toLowerCase().startsWith(last.toLowerCase())) {
+                        sessionChunks[sessionChunks.length - 1] = clean;
+                    } else if (!last.toLowerCase().endsWith(clean.toLowerCase())) {
+                        sessionChunks.push(clean);
+                    }
+                }
+                pendingInterim = '';
+            } else if (interim && interim.trim()) {
+                pendingInterim = interim.trim();
+            }
+
+            renderLiveRecordingStatus();
         },
         onRecordingComplete: (audioUrl, audioBlob, durationSec) => {
             handleRecordingComplete(audioUrl, audioBlob, durationSec);
@@ -165,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             statusDot.className = 'status-dot recording';
-            statusText.textContent = 'Capturando & Filtrando em Tempo Real';
+            statusText.textContent = 'Capturando & Filtrando em Tempo Real (Aguardando término para gerar texto único)';
             
             btnRecord.disabled = false;
             btnRecord.className = 'btn btn-record is-recording';
@@ -183,16 +192,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
         else if (state === 'stopped') {
             statusDot.className = 'status-dot active';
-            statusText.textContent = 'Gravação Concluída • Áudio Limpo e Pronto';
+            statusText.textContent = 'Gravação Concluída • Texto Único Gerado';
             
             btnRecord.disabled = false;
             btnRecord.className = 'btn btn-record';
             recordBtnText.textContent = 'Iniciar Gravação';
             audioLevelText.textContent = 'Nível: -∞ dB';
 
-            // Consolida a frase única da sessão encerrada no histórico permanente
-            commitCurrentSessionTranscript();
-            renderTranscript('', '', 0, [], audioModule.lang);
+            renderTranscriptArea();
         }
         else if (state === 'error') {
             statusDot.className = 'status-dot';
@@ -204,31 +211,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * 3. RENDERIZAÇÃO DA TRANSCRIÇÃO EM TEMPO REAL & ANÁLISE DE PRONÚNCIA
-     * MANTÉM EXATAMENTE UMA ÚNICA LINHA/CARD POR GRAVAÇÃO!
+     * Renderização em Tempo Real (Mostra apenas indicativo de gravação ativa sem gerar cards intermediários)
      */
-    function renderTranscript(finalText, interimText, confidence = 0, alternatives = [], lang = 'en-US') {
-        if (placeholderText && (transcriptHistory.length > 0 || finalText || interimText || currentSessionData.text)) {
+    function renderLiveRecordingStatus() {
+        if (placeholderText && (transcriptHistory.length > 0 || sessionChunks.length > 0 || pendingInterim)) {
             placeholderText.style.display = 'none';
         }
 
-        // Atualiza o card único da gravação atual em tempo real
-        if (finalText) {
-            currentSessionData.text = finalText;
-            currentSessionData.isFinal = true;
-            if (confidence) currentSessionData.confidence = confidence;
-            if (alternatives && alternatives.length) currentSessionData.alternatives = alternatives;
-        } else if (interimText) {
-            currentSessionData.text = interimText;
-            currentSessionData.isFinal = false;
-            if (confidence) currentSessionData.confidence = confidence;
-            if (alternatives && alternatives.length) currentSessionData.alternatives = alternatives;
-        }
+        renderTranscriptArea(true);
+    }
 
-        // Reconstrói a área visual mantendo apenas UMA linha ativa por gravação
+    /**
+     * 3. RENDERIZAÇÃO DA TRANSCRIÇÃO FINAL UNIFICADA (1 ÚNICA LINHA POR GRAVAÇÃO)
+     */
+    function renderTranscriptArea(isLive = false) {
         transcriptContent.innerHTML = '';
 
-        // 1. Renderiza frases de gravações anteriores completadas
+        // 1. Renderiza os cards de frases finalizadas de gravações anteriores
         transcriptHistory.forEach(item => {
             const textStr = typeof item === 'string' ? item : item.text;
             const confVal = typeof item === 'string' ? 95 : item.confidence;
@@ -250,28 +249,16 @@ document.addEventListener('DOMContentLoaded', () => {
             transcriptContent.appendChild(div);
         });
 
-        // 2. Renderiza o CARD ÚNICO DA GRAVAÇÃO ATUAL (atualizado ao vivo a cada palavra nova)
-        if (currentSessionData.text) {
+        // 2. Se estiver no meio de uma gravação ativa, exibe o preview do texto sendo acumulado em 1 único card temporário
+        if (isLive && audioModule.isRecording) {
+            const previewText = sessionChunks.concat(pendingInterim ? [pendingInterim] : []).join(' ').trim();
             const div = document.createElement('div');
-            div.className = currentSessionData.isFinal ? 'transcript-final' : 'transcript-final live-updating';
+            div.className = 'transcript-final live-updating';
             
-            const confVal = currentSessionData.confidence || 96;
-            const confClass = confVal < 88 ? 'medium' : '';
-            const liveBadge = !currentSessionData.isFinal ? ' <span style="font-size:0.75rem; color:var(--secondary); font-style:italic;">(Ao Vivo)</span>' : '';
-
-            div.innerHTML = `<div><span>${currentSessionData.text}</span>${liveBadge} <span class="transcript-confidence ${confClass}">🎯 ${confVal}% Confiança</span></div>`;
-            
-            if (currentSessionData.alternatives && currentSessionData.alternatives.length > 1) {
-                const altsDiv = document.createElement('div');
-                altsDiv.className = 'transcript-alts';
-                altsDiv.innerHTML = `<span>💡 Outras percepções da IA:</span> ` + currentSessionData.alternatives.slice(1).map(a => `<span class="alt-chip">${a.text} (${a.confidence}%)</span>`).join('');
-                div.appendChild(altsDiv);
-            }
-
+            div.innerHTML = `<div><span>${previewText || 'Gravando fala...'}</span> <span style="font-size:0.75rem; color:var(--secondary); font-style:italic;">🔴 Capturando áudio...</span></div>`;
             transcriptContent.appendChild(div);
         }
 
-        // Rolagem automática suave
         transcriptContent.scrollTop = transcriptContent.scrollHeight;
     }
 
@@ -305,14 +292,58 @@ document.addEventListener('DOMContentLoaded', () => {
      * 5. EVENTOS DOS BOTÕES PRINCIPAIS
      */
     btnRecord.addEventListener('click', () => {
+        if (isProcessingUnification) return;
+
         if (audioModule.isRecording) {
+            isProcessingUnification = true;
             audioModule.stopRecording();
+            
             if ('vibrate' in navigator) {
                 try { navigator.vibrate([50, 50, 50]); } catch(e) {}
             }
+
+            // Exibe contagem regressiva de 2 segundos para compilação do texto único
+            btnRecord.disabled = true;
+            recordBtnText.textContent = '⏳ Unificando Texto (2s)...';
+            statusDot.className = 'status-dot active';
+            statusText.textContent = 'Aguardando 2 segundos para compilar e gerar um texto único...';
+
+            setTimeout(() => {
+                if (pendingInterim) {
+                    const cleanInterim = pendingInterim.trim();
+                    if (!sessionChunks.length || !sessionChunks.join(' ').includes(cleanInterim)) {
+                        sessionChunks.push(cleanInterim);
+                    }
+                }
+
+                // Une todas as frases e pausas de respiração em UM ÚNICO TEXTO FINAL
+                const unifiedText = sessionChunks.join(' ').replace(/\s+/g, ' ').trim();
+                
+                if (unifiedText) {
+                    const exists = transcriptHistory.some(item => (typeof item === 'string' ? item : item.text) === unifiedText);
+                    if (!exists) {
+                        transcriptHistory.push({
+                            text: unifiedText,
+                            confidence: lastConfidence || 96,
+                            alternatives: lastAlternatives || []
+                        });
+                    }
+                }
+
+                // Limpa buffers da sessão
+                sessionChunks = [];
+                pendingInterim = '';
+                isProcessingUnification = false;
+
+                // Atualiza UI para estado finalizado
+                updateUiState('stopped');
+            }, 2000);
         } else {
             // Se já houver um áudio tocando, pausa
             audioPlayer.pause();
+            sessionChunks = [];
+            pendingInterim = '';
+            isProcessingUnification = false;
             audioModule.startRecording();
         }
     });
