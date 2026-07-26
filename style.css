@@ -661,3 +661,72 @@ audio#audioPlayer {
     color: var(--text-main);
     font-weight: 600;
 }
+
+/* Seletor Inteligente de Idioma */
+.lang-selector {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main);
+    border: 1px solid var(--border-glass);
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.lang-selector:hover, .lang-selector:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--secondary);
+}
+
+.lang-selector option {
+    background: #0f172a;
+    color: #fff;
+    padding: 0.5rem;
+}
+
+/* Indicadores de Inteligência e Precisão de Transcrição */
+.transcript-confidence {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 99px;
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    margin-left: 0.6rem;
+    vertical-align: middle;
+}
+
+.transcript-confidence.medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.transcript-alts {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.alt-chip {
+    background: rgba(255,255,255,0.05);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-style: italic;
+}

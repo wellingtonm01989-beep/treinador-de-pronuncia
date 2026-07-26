@@ -135,12 +135,21 @@
 
             <!-- COLUNA DIREITA: TRANSCRIÇÃO EM TEMPO REAL (TIPO DUOLINGO) -->
             <section class="glass-card transcript-box">
-                <div class="card-header">
+                <div class="card-header" style="flex-wrap: wrap; gap: 0.8rem;">
                     <div>
-                        <h2>💬 Transcrição de Voz ao Vivo</h2>
-                        <p>Conversação em tempo real (Web Speech API • pt-BR)</p>
+                        <h2>💬 Transcrição IA de Alta Precisão</h2>
+                        <p>Foco na inteligibilidade consonantal (Inglês) & Multilingue</p>
                     </div>
-                    <span id="speechStatus" class="badge cyan" style="font-size: 0.7rem;">🇧🇷 Prontidão Nativa</span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <select id="langSelector" class="lang-selector" title="Selecione o Idioma do Treinador de Voz">
+                            <option value="en-US" selected>🇺🇸 Inglês (EUA)</option>
+                            <option value="en-GB">🇬🇧 Inglês (UK)</option>
+                            <option value="pt-BR">🇧🇷 Português (BR)</option>
+                            <option value="es-ES">🇪🇸 Espanhol</option>
+                            <option value="fr-FR">🇫🇷 Francês</option>
+                        </select>
+                        <span id="speechStatus" class="badge cyan" style="font-size: 0.7rem;">🇺🇸 en-US Ativo</span>
+                    </div>
                 </div>
 
                 <!-- 5. CAIXA DE TEXTO DE TRANSCRIÇÃO AO VIVO -->

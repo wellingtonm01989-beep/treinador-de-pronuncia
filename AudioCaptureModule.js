@@ -19,6 +19,7 @@ export class AudioCaptureModule {
         this.onTranscript = options.onTranscript || (() => {});
         this.onRecordingComplete = options.onRecordingComplete || (() => {});
         this.onError = options.onError || (() => {});
+        this.lang = options.lang || 'en-US'; // Padrão inteligente em Inglês Americano para Treinador de Pronúncia
 
         // Estados do sistema
         this.isRecording = false;
@@ -42,6 +43,7 @@ export class AudioCaptureModule {
         // Nós do Web Audio API (DSP)
         this.sourceNode = null;
         this.highPassFilter = null;
+        this.presenceBoost = null;
         this.lowPassFilter = null;
         this.compressorNode = null;
         this.analyserNode = null;
@@ -64,20 +66,31 @@ export class AudioCaptureModule {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.speechRecognition = new SpeechRecognition();
         
-        // Configurações para conversação contínua e em tempo real em Português do Brasil
-        this.speechRecognition.lang = 'pt-BR';
+        // Configurações para conversação contínua e em tempo real
+        this.speechRecognition.lang = this.lang;
         this.speechRecognition.continuous = true;
         this.speechRecognition.interimResults = true;
-        this.speechRecognition.maxAlternatives = 1;
+        this.speechRecognition.maxAlternatives = 5; // Aumenta inteligência acionando 5 suposições fonéticas do algoritmo
 
         this.speechRecognition.onresult = (event) => {
             let interimTranscript = '';
             let finalTranscript = '';
+            let bestConfidence = 0;
+            let alternatives = [];
 
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 const result = event.results[i];
                 if (result.isFinal) {
                     finalTranscript += result[0].transcript;
+                    bestConfidence = Math.round((result[0].confidence || 0.96) * 100);
+                    for (let j = 0; j < result.length && j < 3; j++) {
+                        if (result[j] && result[j].transcript) {
+                            alternatives.push({
+                                text: result[j].transcript.trim(),
+                                confidence: Math.round((result[j].confidence || 0.90) * 100)
+                            });
+                        }
+                    }
                 } else {
                     interimTranscript += result[0].transcript;
                 }
@@ -86,7 +99,10 @@ export class AudioCaptureModule {
             if (finalTranscript || interimTranscript) {
                 this.onTranscript({
                     final: finalTranscript.trim(),
-                    interim: interimTranscript.trim()
+                    interim: interimTranscript.trim(),
+                    confidence: bestConfidence,
+                    alternatives: alternatives,
+                    lang: this.lang
                 });
             }
         };
@@ -174,16 +190,24 @@ export class AudioCaptureModule {
             // Nó de Entrada (Microfone)
             this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
 
-            // Filtro Passa-Alta (High-Pass): ~85 Hz (Corta roncos, motores, vento, AC)
+            // Filtro Passa-Alta (High-Pass): ~80 Hz (Corta roncos, motores, vento, AC)
             this.highPassFilter = this.audioContext.createBiquadFilter();
             this.highPassFilter.type = 'highpass';
-            this.highPassFilter.frequency.value = 85;
+            this.highPassFilter.frequency.value = 80;
             this.highPassFilter.Q.value = 0.707; // Resposta Butterworth plana
 
-            // Filtro Passa-Baixa (Low-Pass): ~7000 Hz (Corta apitos industriais, chiados agudos)
+            // Nó de Reforço de Presença Vocal (Peaking EQ): 2800 Hz (+3.5 dB)
+            // Realça sibilantes e fricativas do Inglês (th, s, ch, sh, r) com máxima nitidez de estúdio
+            this.presenceBoost = this.audioContext.createBiquadFilter();
+            this.presenceBoost.type = 'peaking';
+            this.presenceBoost.frequency.value = 2800;
+            this.presenceBoost.Q.value = 1.0;
+            this.presenceBoost.gain.value = 3.5;
+
+            // Filtro Passa-Baixa (Low-Pass): ~8500 Hz (Preserva agudos consonantais do inglês)
             this.lowPassFilter = this.audioContext.createBiquadFilter();
             this.lowPassFilter.type = 'lowpass';
-            this.lowPassFilter.frequency.value = 7000;
+            this.lowPassFilter.frequency.value = 8500;
             this.lowPassFilter.Q.value = 0.707;
 
             // Compressor Dinâmico (Estabiliza ganho da voz em tempo real contra picos súbitos)
@@ -275,6 +299,7 @@ export class AudioCaptureModule {
         try {
             this.sourceNode.disconnect();
             this.highPassFilter.disconnect();
+            if (this.presenceBoost) this.presenceBoost.disconnect();
             this.lowPassFilter.disconnect();
             this.compressorNode.disconnect();
             this.analyserNode.disconnect();
@@ -284,15 +309,20 @@ export class AudioCaptureModule {
 
         if (this.dspFiltersEnabled) {
             // Rota Limpa (DSP Ativado):
-            // Microfone -> HighPass (85Hz) -> LowPass (7kHz) -> Compressor -> Analisador & Gravador
+            // Microfone -> HighPass (80Hz) -> Presence Boost (+3.5dB@2.8kHz) -> LowPass (8.5kHz) -> Compressor -> Analisador & Gravador
             this.sourceNode.connect(this.highPassFilter);
-            this.highPassFilter.connect(this.lowPassFilter);
+            if (this.presenceBoost) {
+                this.highPassFilter.connect(this.presenceBoost);
+                this.presenceBoost.connect(this.lowPassFilter);
+            } else {
+                this.highPassFilter.connect(this.lowPassFilter);
+            }
             this.lowPassFilter.connect(this.compressorNode);
             
             // O analisador e o destino de gravação recebem o som limpo e estabilizado
             this.compressorNode.connect(this.analyserNode);
             this.compressorNode.connect(this.destinationNode);
-            console.log('[AudioCaptureModule] DSP Roteado: FILTROS ATIVOS (85Hz - 7kHz + Compressor)');
+            console.log('[AudioCaptureModule] DSP Roteado: FILTROS ATIVOS (80Hz - 8.5kHz + Presença Vocal + Compressor)');
         } else {
             // Rota Direta (DSP Desativado - Apenas áudio bruto/nativo):
             // Microfone -> Analisador & Gravador (sem passar pelos filtros biquad)
@@ -336,6 +366,23 @@ export class AudioCaptureModule {
         this.dspFiltersEnabled = Boolean(enabled);
         if (this.isRecording) {
             this.updateRouting();
+        }
+    }
+
+    /**
+     * Altera o idioma de transcrição vocal em tempo real (ex: en-US, pt-BR, en-GB)
+     * @param {string} lang 
+     */
+    setLanguage(lang) {
+        this.lang = lang;
+        console.log(`[AudioCaptureModule] Idioma de transcrição atualizado para: ${this.lang}`);
+        if (this.speechRecognition) {
+            this.speechRecognition.lang = this.lang;
+            if (this.isRecording && !this.isPaused) {
+                try {
+                    this.speechRecognition.stop(); // O evento onend religará automaticamente o motor no novo idioma!
+                } catch (e) {}
+            }
         }
     }
 

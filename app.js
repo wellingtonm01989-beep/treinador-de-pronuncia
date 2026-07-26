@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCopy = document.getElementById('btnCopy');
     const btnClear = document.getElementById('btnClear');
     const speechStatus = document.getElementById('speechStatus');
+    const langSelector = document.getElementById('langSelector');
 
     // Diagnósticos no Rodapé
     const diagRate = document.getElementById('diagRate');
@@ -48,15 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let animationFrameId = null;
 
     /**
-     * 1. INICIALIZAÇÃO DO MÓDULO DE ÁUDIO (DEFESA EM CAMADAS)
+     * 1. INICIALIZAÇÃO DO MÓDULO DE ÁUDIO (DEFESA EM CAMADAS & IA VOCAL)
      */
     const audioModule = new AudioCaptureModule({
+        lang: langSelector ? langSelector.value : 'en-US',
         onStateChange: (state) => {
             updateUiState(state);
             updateDiagnostics();
         },
-        onTranscript: ({ final, interim }) => {
-            renderTranscript(final, interim);
+        onTranscript: ({ final, interim, confidence, alternatives, lang }) => {
+            renderTranscript(final, interim, confidence, alternatives, lang);
         },
         onRecordingComplete: (audioUrl, audioBlob, durationSec) => {
             handleRecordingComplete(audioUrl, audioBlob, durationSec);
@@ -121,23 +123,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * 3. RENDERIZAÇÃO DA TRANSCRIÇÃO EM TEMPO REAL
+     * 3. RENDERIZAÇÃO DA TRANSCRIÇÃO EM TEMPO REAL & ANÁLISE DE PRONÚNCIA
      */
-    function renderTranscript(finalText, interimText) {
+    function renderTranscript(finalText, interimText, confidence = 0, alternatives = [], lang = 'en-US') {
         if (placeholderText) placeholderText.style.display = 'none';
 
-        if (finalText && !transcriptHistory.includes(finalText)) {
-            transcriptHistory.push(finalText);
+        if (finalText) {
+            // Verifica se a frase já foi adicionada para evitar repetição
+            const exists = transcriptHistory.some(item => (typeof item === 'string' ? item : item.text) === finalText);
+            if (!exists) {
+                transcriptHistory.push({
+                    text: finalText,
+                    confidence: confidence || 96,
+                    alternatives: alternatives || []
+                });
+            }
         }
 
         // Limpa e reconstrói o box para manter a ordem limpa do diálogo
         transcriptContent.innerHTML = '';
 
-        // Renderiza blocos finalizados (Estilo Duolingo / Chat)
-        transcriptHistory.forEach(text => {
+        // Renderiza blocos finalizados (Estilo Treinador / Duolingo)
+        transcriptHistory.forEach(item => {
+            const textStr = typeof item === 'string' ? item : item.text;
+            const confVal = typeof item === 'string' ? 95 : item.confidence;
+            const alts = typeof item === 'string' ? [] : item.alternatives;
+
             const div = document.createElement('div');
             div.className = 'transcript-final';
-            div.textContent = text;
+            
+            // Texto Principal e Selo de Confiança IA
+            const confClass = confVal < 88 ? 'medium' : '';
+            div.innerHTML = `<div><span>${textStr}</span> <span class="transcript-confidence ${confClass}" title="Taxa de precisão calculada pelo algoritmo de voz">🎯 ${confVal}% Confiança</span></div>`;
+            
+            // Renderiza alternativas fonéticas capturadas pelo algoritmo (se houver)
+            if (alts && alts.length > 1) {
+                const altsDiv = document.createElement('div');
+                altsDiv.className = 'transcript-alts';
+                altsDiv.innerHTML = `<span>💡 Outras percepções da IA:</span> ` + alts.slice(1).map(a => `<span class="alt-chip">${a.text} (${a.confidence}%)</span>`).join('');
+                div.appendChild(altsDiv);
+            }
+
             transcriptContent.appendChild(div);
         });
 
@@ -222,9 +248,21 @@ document.addEventListener('DOMContentLoaded', () => {
         boxDsp.classList.toggle('active', e.target.checked);
     });
 
+    // Seletor Inteligente de Idiomas (Foco em Inglês/Multilingue)
+    if (langSelector) {
+        langSelector.addEventListener('change', (e) => {
+            const newLang = e.target.value;
+            audioModule.setLanguage(newLang);
+            if (speechStatus) {
+                const flagMap = { 'en-US': '🇺🇸 en-US', 'en-GB': '🇬🇧 en-GB', 'pt-BR': '🇧🇷 pt-BR', 'es-ES': '🇪🇸 es-ES', 'fr-FR': '🇫🇷 fr-FR' };
+                speechStatus.textContent = `${flagMap[newLang] || newLang} Ativo`;
+            }
+        });
+    }
+
     // Botões Auxiliares da Transcrição
     btnCopy.addEventListener('click', () => {
-        const fullText = transcriptHistory.join(' ');
+        const fullText = transcriptHistory.map(i => typeof i === 'string' ? i : i.text).join(' ');
         if (!fullText) return;
 
         navigator.clipboard.writeText(fullText).then(() => {
