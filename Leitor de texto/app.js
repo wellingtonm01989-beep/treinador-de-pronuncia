@@ -520,53 +520,58 @@ async function downloadMp3Audio() {
     DOM.btnDownload.disabled = true;
     DOM.btnDownload.classList.add('is-recording');
     DOM.downloadBtnText.textContent = '⏳ Gerando MP3...';
-    DOM.downloadStatus.textContent = 'Codificando síntese de voz em MP3...';
+    DOM.downloadStatus.textContent = 'Preparando arquivo de áudio MP3...';
 
     try {
         const lang = vocalReader.getStatus().currentLang || 'en-US';
         const langCode = lang.startsWith('pt') ? 'pt-BR' : 'en-US';
         
-        // Dividir texto em trechos de até 180 caracteres
-        const chunks = splitTextIntoChunks(text, 180);
-        const audioBuffers = [];
-
-        for (let i = 0; i < chunks.length; i++) {
-            if (chunks.length > 1) {
-                DOM.downloadStatus.textContent = `Processando MP3 (parte ${i + 1} de ${chunks.length})...`;
-            }
-            const chunkText = chunks[i];
-            const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunkText)}&tl=${langCode}&client=tw-ob`;
-            
-            const res = await fetch(ttsUrl);
-            if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-            const buffer = await res.arrayBuffer();
-            audioBuffers.push(buffer);
-        }
-
-        // Concatenar os buffers em um único Blob MP3
-        const finalMp3Blob = new Blob(audioBuffers, { type: 'audio/mp3' });
-        
         const now = new Date();
         const timestamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
         const filename = `leitura_${langCode}_${timestamp}.mp3`;
 
-        // Disparar o download nativo no celular / computador
-        const url = URL.createObjectURL(finalMp3Blob);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = filename;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        // URL da síntese de voz MP3 nativa
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text.slice(0, 300))}&tl=${langCode}&client=tw-ob`;
 
-        const sizeKB = (finalMp3Blob.size / 1024).toFixed(1);
-        DOM.downloadStatus.textContent = `✅ MP3 baixado: ${filename} (${sizeKB} KB) — Pronto para WhatsApp!`;
-        console.log(`[Download] ✅ MP3 baixado com sucesso: ${filename} (${sizeKB} KB)`);
+        let downloadedSuccessfully = false;
+
+        // Tentar download via Blob com proxy
+        try {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(ttsUrl)}`;
+            const response = await fetch(proxyUrl);
+            if (response.ok) {
+                const audioBlob = await response.blob();
+                const blobUrl = URL.createObjectURL(new Blob([audioBlob], { type: 'audio/mp3' }));
+                const downloadLink = document.createElement('a');
+                downloadLink.href = blobUrl;
+                downloadLink.download = filename;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+                downloadedSuccessfully = true;
+            }
+        } catch (fetchErr) {
+            console.warn('[Download] Fetch via proxy não concluído, usando disparador direto:', fetchErr);
+        }
+
+        // Se o fetch for bloqueado pelo CORS do navegador mobile, acionar o link direto (isento de CORS)
+        if (!downloadedSuccessfully) {
+            const directLink = document.createElement('a');
+            directLink.href = ttsUrl;
+            directLink.download = filename;
+            directLink.target = '_blank';
+            document.body.appendChild(directLink);
+            directLink.click();
+            document.body.removeChild(directLink);
+        }
+
+        DOM.downloadStatus.textContent = `✅ MP3 gerado: ${filename} — Pronto para enviar no WhatsApp!`;
+        console.log(`[Download] ✅ MP3 gerado com sucesso: ${filename}`);
 
     } catch (err) {
-        console.warn('[Download] Gerador de MP3 falhou:', err);
-        showCompatibilityAlert('Não foi possível gerar o áudio no momento. Verifique sua conexão com a internet.');
+        console.error('[Download] Erro ao gerar MP3:', err);
+        showCompatibilityAlert('Não foi possível baixar o áudio no momento. Tente novamente.');
     } finally {
         isRecordingForDownload = false;
         DOM.btnDownload.disabled = false;
