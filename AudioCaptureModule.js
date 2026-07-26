@@ -204,19 +204,38 @@ export class AudioCaptureModule {
 
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-            // CRÍTICO NO CELULAR (ANDROD/IOS): O mixer do Android (AudioFlinger) muta o segundo processo a requisitar o microfone.
-            // Por isso, no Mobile, nós INICIAMOS A TRANSCRIÇÃO PRIMEIRO para que o Google Speech Services (serviço privilegiado do sistema)
-            // garanta a posse primária do microfone antes do WebAudio/MediaRecorder se conectar como secundário!
-            if (isMobile && this.speechRecognition) {
-                console.log('[SpeechRecognition] 📱 Modo Mobile: Disparando motor de voz PRIMEIRO para garantir posse do microfone...');
-                try {
-                    this.speechRecognition.start();
-                    console.log('[SpeechRecognition] 🟢 Comando .start() acionado com prioridade primária de hardware!');
-                } catch (e) {
-                    console.error(`[SpeechRecognition] Exceção na inicialização primaria: ${e.message || e}`);
+            // MODO MOBILE EXCLUSIVO DE TRANSCRIÇÃO (RESOLUÇÃO DEFINITIVA DO ANDROID/XIAOMI):
+            // No Android 10+ (especialmente MIUI/HyperOS), abrir o getUserMedia (WebAudio) ao mesmo tempo que o
+            // Google Speech (SpeechRecognition) faz o AudioFlinger do kernel mutar um dos dois ou alternar a cada 5 segundos!
+            // Por isso, no Celular, nós NUNCA abrimos o getUserMedia! Damos 100% DE EXCLUSIVIDADE do microfone para a Transcrição IA!
+            if (isMobile) {
+                console.log('[AudioCaptureModule] 📱 MODO MOBILE EXCLUSIVO DE TRANSCRIÇÃO ATIVADO!');
+                console.log('[AudioCaptureModule] Evitando conflito no kernel Android: sem getUserMedia simultâneo, sem bip em loop e sem mutar a fala!');
+
+                this.isRecording = true;
+                this.isPaused = false;
+                this.startTime = Date.now();
+                this.durationSec = 0;
+
+                if (this.speechRecognition) {
+                    try {
+                        this.speechRecognition.start();
+                        console.log('[SpeechRecognition] 🟢 Motor iniciado com 100% de exclusividade de hardware!');
+                    } catch (e) {
+                        console.error(`[SpeechRecognition] Exceção ao iniciar transcrição exclusiva: ${e.message || e}`);
+                    }
+                } else {
+                    console.error('[SpeechRecognition] IMPOSSÍVEL iniciar transcrição: API não suportada neste celular.');
                 }
-                // Aguarda 400ms para o serviço do Google consolidar o socket de escuta no kernel antes do getUserMedia
-                await new Promise(resolve => setTimeout(resolve, 400));
+
+                // Cronômetro contínuo e atualização de UI (botão "Parar Gravação" permacece ATIVO até clique manual)
+                this.timerInterval = setInterval(() => {
+                    this.durationSec = Math.floor((Date.now() - this.startTime) / 1000);
+                    this.onStateChange('recording');
+                }, 500);
+
+                this.onStateChange('recording');
+                return;
             }
 
             // CAMADA 1: Supressão Nativa via MediaStream Constraints
@@ -457,7 +476,7 @@ export class AudioCaptureModule {
      * Para completamente a gravação, libera hardware, memória e encerra transcrição
      */
     stopRecording() {
-        if (!this.isRecording && !this.stream) return;
+        if (!this.isRecording) return;
 
         this.isRecording = false;
         clearInterval(this.timerInterval);
@@ -479,6 +498,10 @@ export class AudioCaptureModule {
             } catch (e) {
                 console.warn('[AudioCaptureModule] Erro ao parar MediaRecorder:', e);
             }
+        } else {
+            // No Modo Mobile Exclusivo, informamos à UI que a sessão de transcrição foi encerrada com sucesso
+            const emptyBlob = new Blob([], { type: 'audio/webm' });
+            this.onRecordingComplete('', emptyBlob, this.durationSec);
         }
 
         // Desliga as trilhas de microfone (apaga o LED vermelho do navegador/sistema operacional)

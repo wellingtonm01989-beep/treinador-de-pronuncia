@@ -244,6 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
      * 4. MANIPULAÇÃO DE ÁUDIO GRAVADO (AUDITORIA & DOWNLOAD)
      */
     function handleRecordingComplete(audioUrl, audioBlob, durationSec) {
+        if (!audioUrl) {
+            console.log('[App] Sessão de transcrição mobile concluída com êxito.');
+            return;
+        }
         // Habilita Botão 2 (Reproduzir)
         btnPlay.disabled = false;
         btnPlay.style.borderColor = 'var(--accent)';
