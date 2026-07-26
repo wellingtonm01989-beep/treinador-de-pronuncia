@@ -44,6 +44,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const diagCodec = document.getElementById('diagCodec');
     const diagSpeech = document.getElementById('diagSpeech');
 
+    // Terminal Ao Vivo (Audit Logs do Celular/PC)
+    const liveLogBox = document.getElementById('liveLogBox');
+    const btnCopyLogs = document.getElementById('btnCopyLogs');
+    const btnClearLogs = document.getElementById('btnClearLogs');
+
+    // Sistema de Interceptação de Logs na Tela
+    function logToScreen(type, ...args) {
+        if (!liveLogBox) return;
+        const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+        const timeStr = new Date().toLocaleTimeString('pt-BR');
+        
+        let cssClass = 'log-info';
+        if (type === 'warn' || text.includes('Aviso') || text.includes('warn')) cssClass = 'log-warn';
+        else if (type === 'error' || text.includes('Erro') || text.includes('Falha') || text.includes('error')) cssClass = 'log-error';
+        else if (text.includes('sucesso') || text.includes('iniciado') || text.includes('[SpeechRecognition]')) cssClass = 'log-success';
+        else if (text.includes('[AudioCaptureModule]') || text.includes('[System]') || text.includes('[PWA]')) cssClass = 'log-sys';
+
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span class="log-time">[${timeStr}]</span> <span class="log-text ${cssClass}">${text}</span>`;
+        
+        liveLogBox.appendChild(entry);
+        while (liveLogBox.children.length > 150) {
+            liveLogBox.removeChild(liveLogBox.firstChild);
+        }
+        liveLogBox.scrollTop = liveLogBox.scrollHeight;
+    }
+
+    // Intercepta métodos nativos do console para capturar tudo na tela
+    const origLog = console.log;
+    const origWarn = console.warn;
+    const origError = console.error;
+    const origDebug = console.debug;
+
+    console.log = (...args) => { origLog.apply(console, args); logToScreen('log', ...args); };
+    console.warn = (...args) => { origWarn.apply(console, args); logToScreen('warn', ...args); };
+    console.error = (...args) => { origError.apply(console, args); logToScreen('error', ...args); };
+    console.debug = (...args) => { origDebug.apply(console, args); logToScreen('debug', ...args); };
+
+    if (btnCopyLogs) {
+        btnCopyLogs.addEventListener('click', () => {
+            const logsText = Array.from(liveLogBox.querySelectorAll('.log-entry')).map(el => el.textContent).join('\n');
+            navigator.clipboard.writeText(logsText).then(() => {
+                const oldTitle = btnCopyLogs.textContent;
+                btnCopyLogs.textContent = '✅ Copiado!';
+                setTimeout(() => btnCopyLogs.textContent = oldTitle, 2000);
+            }).catch(() => alert('Não foi possível copiar os logs.'));
+        });
+    }
+
+    if (btnClearLogs) {
+        btnClearLogs.addEventListener('click', () => {
+            liveLogBox.innerHTML = '<div class="log-entry"><span class="log-time">[' + new Date().toLocaleTimeString('pt-BR') + ']</span> <span class="log-text log-sys">🧹 Console limpo pelo usuário.</span></div>';
+        });
+    }
+
+    // Log inicial de auditoria no carregamento da tela
+    console.log(`[System] Dispositivo detectado: ${navigator.userAgent}`);
+    console.log(`[System] Web Speech API (Transcrição): ${Boolean(window.SpeechRecognition || window.webkitSpeechRecognition) ? 'Suportado no Navegador ✅' : 'Não suportado ❌'}`);
+    console.log(`[System] Web Audio API (DSP Frequência): ${Boolean(window.AudioContext || window.webkitAudioContext) ? 'Suportado ✅' : 'Não suportado ❌'}`);
+
     // Estado local da Transcrição
     let transcriptHistory = [];
     let animationFrameId = null;
