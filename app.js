@@ -353,13 +353,17 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * 8. TRATAMENTO DE ERROS AMIGÁVEIS
      */
-    function handleError(error, context) {
+     function handleError(error, context) {
         console.error(`[App] Erro em [${context}]:`, error);
         
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
             alert('⚠️ Acesso ao microfone negado! Por favor, autorize o microfone nas configurações do seu navegador para testar o módulo DSP.');
+            statusText.textContent = '🚫 Microfone Bloqueado • Clique no Cadeado 🔒 na barra de endereços para Permitir';
+            if (recordBtnText) recordBtnText.textContent = 'Permissão Negada';
+            if (btnRecord) btnRecord.className = 'btn btn-record';
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
             alert('⚠️ Nenhum microfone detectado neste dispositivo!');
+            statusText.textContent = '⚠️ Nenhum microfone encontrado no computador';
         } else if (context === 'speech_recognition' && error.message.includes('not-allowed')) {
             speechStatus.textContent = '🚫 Permissão de Voz Negada';
             speechStatus.className = 'badge';
