@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VocalReader AI • Síntese de Voz Nativa & Leitura Inteligente</title>
+    <meta name="description" content="Módulo client-side de síntese de voz nativa e leitura inteligente com algoritmo ranking de vozes neurais para inglês e português. Custo zero.">
+    
+    <!-- Link para a Folha de Estilos -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Favicon temporário em emoji -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+</head>
+<body>
+
+    <!-- Alerta de Compatibilidade (Visível em navegadores sem suporte ou bloqueados) -->
+    <div id="compatibility-alert" class="alert-banner">
+        <span style="font-size: 1.5rem;">⚠️</span>
+        <div>
+            <strong>Aviso de Compatibilidade Acústica:</strong>
+            <span id="alert-message">Seu navegador pode não carregar vozes na nuvem offline. Recomendamos utilizar Google Chrome ou Microsoft Edge no computador para áudio Neural em máxima fidelidade.</span>
+        </div>
+    </div>
+
+    <main class="app-container">
+        
+        <!-- HEADER / HERO -->
+        <header class="app-header">
+            <div class="logo-group">
+                <div class="logo-icon">🎙️</div>
+                <div class="logo-text">
+                    <h1>VocalReader <span>AI</span></h1>
+                    <span>Phase 2 • Síntese de Voz Nativa & Leitura Inteligente</span>
+                </div>
+            </div>
+
+            <!-- BARRA DE STATUS DO MÓDULO & EQUALIZADOR -->
+            <div id="status-pill" class="status-pill">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text">Inicializando Motor de Voz...</span>
+                <div class="equalizer-waves">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 1. SELETOR DE IDIOMA EM DESTAQUE (Estilo Duolingo) -->
+        <section class="lang-selector-section">
+            <span class="lang-selector-title">Selecione o Idioma de Treinamento</span>
+            <div class="lang-tabs" role="tablist" aria-label="Seletor de Idioma">
+                <button type="button" id="tab-en" class="lang-tab active" data-lang="en-US" role="tab" aria-selected="true">
+                    <span class="lang-flag">🇺🇸</span>
+                    <span>Inglês Americano (en-US)</span>
+                </button>
+                <button type="button" id="tab-pt" class="lang-tab" data-lang="pt-BR" role="tab" aria-selected="false">
+                    <span class="lang-flag">🇧🇷</span>
+                    <span>Português Brasil (pt-BR)</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- GRID PRINCIPAL (2 COLUNAS: CONTROLES & PLAYGROUND) -->
+        <div class="main-grid">
+            
+            <!-- COLUNA ESQUERDA: PAINEL INSPETOR DE VOZ (Transparência Total) -->
+            <aside class="glass-card">
+                <div class="card-header">
+                    <h2>🎧 Inspetor Acústico</h2>
+                    <span class="card-header-badge">Algoritmo Neural</span>
+                </div>
+
+                <!-- Destaque da Voz Campeã Eleita -->
+                <div class="champion-box">
+                    <div class="champion-trophy">🏆</div>
+                    <div class="champion-info">
+                        <div class="champion-label">Voz Campeã Eleita pelo Algoritmo</div>
+                        <div id="champion-name" class="champion-name">Procurando melhor voz...</div>
+                        <div class="champion-meta">
+                            <span id="champion-score" class="score-badge">--- pts</span>
+                            <span id="champion-tier">Analisando...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dropdown de Transparência / Comparação Manual -->
+                <div class="form-group">
+                    <label for="voice-select">
+                        <span>Comparar Com Outras Vozes Instaladas:</span>
+                        <span id="voices-count-label" style="color: var(--cyan-accent);">0 vozes</span>
+                    </label>
+                    <div class="select-wrapper">
+                        <select id="voice-select" class="voice-select" aria-label="Selecionar voz manualmente">
+                            <option value="">Carregando vozes do sistema...</option>
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border-glass);">
+
+                <!-- 3. SELETOR DE VELOCIDADE DE LEITURA (Treinamento) -->
+                <div class="form-group">
+                    <label>Velocidade de Conversação (Rate):</label>
+                    <div class="speed-buttons">
+                        <button type="button" class="speed-btn" data-rate="0.75">
+                            <span class="speed-icon">🐢</span>
+                            <span class="speed-text">0.75x</span>
+                            <span class="speed-desc">Lento / Articulado</span>
+                        </button>
+                        <button type="button" class="speed-btn active" data-rate="1.0">
+                            <span class="speed-icon">🚶</span>
+                            <span class="speed-text">1.0x</span>
+                            <span class="speed-desc">Normal Nativo</span>
+                        </button>
+                        <button type="button" class="speed-btn" data-rate="1.25">
+                            <span class="speed-icon">🏃</span>
+                            <span class="speed-text">1.25x</span>
+                            <span class="speed-desc">Rápido / Desafio</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slider Ajuste Fino de Velocidade -->
+                <div class="form-group">
+                    <div class="slider-container">
+                        <span style="font-size:0.8rem; color:var(--text-muted);">Ajuste Fino:</span>
+                        <input type="range" id="rate-slider" class="acoustic-slider" min="0.5" max="2.0" step="0.05" value="1.0">
+                        <span id="rate-val" class="slider-val">1.00x</span>
+                    </div>
+                </div>
+
+                <!-- Slider Ajuste de Tom (Pitch) -->
+                <div class="form-group">
+                    <label for="pitch-slider">Entonação e Tom (Pitch):</label>
+                    <div class="slider-container">
+                        <span style="font-size:0.8rem; color:var(--text-muted);">Grave/Agudo:</span>
+                        <input type="range" id="pitch-slider" class="acoustic-slider" min="0.5" max="1.5" step="0.05" value="1.0">
+                        <span id="pitch-val" class="slider-val">1.00</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- COLUNA DIREITA: PLAYGROUND DE LEITURA & DESTAQUE EM TEMPO REAL -->
+            <section class="glass-card">
+                <div class="card-header">
+                    <h2>📖 Teleprompter de Leitura Inteligente</h2>
+                    <span class="card-header-badge" id="lang-badge">🇺🇸 en-US</span>
+                </div>
+
+                <div class="playground-area">
+                    <!-- 4. ÁREA DE TEXTO E TELEPROMPTER SOBREPOSTO -->
+                    <div class="text-display-container">
+                        <textarea id="text-input" class="custom-textarea" placeholder="Digite ou cole qualquer texto em inglês ou português para testar a pronúncia e síntese de voz natural..." spellcheck="true"></textarea>
+                        
+                        <!-- Teleprompter Interativo (Destaca cada palavra durante a fala via onboundary) -->
+                        <div id="teleprompter-view" class="teleprompter-view" aria-live="polite"></div>
+                    </div>
+
+                    <div class="text-footer">
+                        <span id="char-counter">0 caracteres • 0 palavras</span>
+                        <button type="button" id="btn-clear" class="clear-btn" title="Limpar texto">
+                            🗑️ Limpar Texto
+                        </button>
+                    </div>
+
+                    <!-- 5. BOTÕES DE COMANDO PRINCIPAIS -->
+                    <div class="command-bar">
+                        <button type="button" id="btn-speak" class="btn-speak">
+                            <span class="btn-icon">🔊</span>
+                            <span id="speak-btn-text">Falar Texto (Ouvir Leitura)</span>
+                        </button>
+                        
+                        <button type="button" id="btn-pause" class="btn-secondary" disabled title="Pausar ou Continuar Leitura">
+                            <span>⏸️</span>
+                            <span id="pause-btn-text">Pausar</span>
+                        </button>
+
+                        <button type="button" id="btn-stop" class="btn-secondary" disabled title="Interromper fala imediatamente">
+                            <span>⏹️</span>
+                            <span>Parar</span>
+                        </button>
+                    </div>
+
+                    <!-- 6. BOTÃO DE DOWNLOAD DE ÁUDIO (WhatsApp Compatível) -->
+                    <div class="download-bar">
+                        <button type="button" id="btn-download" class="btn-download" title="Gravar a leitura e baixar como áudio compatível com WhatsApp">
+                            <span class="btn-icon">📥</span>
+                            <span id="download-btn-text">Baixar Áudio (WhatsApp)</span>
+                        </button>
+                        <span id="download-status" class="download-status"></span>
+                    </div>
+
+                    <hr style="border: none; border-top: 1px solid var(--border-glass); margin: 6px 0;">
+
+                    <!-- 4. BOTÕES DE FRASES PRONTAS PARA TESTE RÁPIDO -->
+                    <div class="phrase-chips-wrapper">
+                        <span class="chips-label">⚡ Frases Prontas para Teste Rápido (Clique para Carregar):</span>
+                        <div id="chips-grid-en" class="chips-grid">
+                            <button type="button" class="phrase-chip" data-phrase="Hello! How are you doing today? Let's practice American English pronunciation!">
+                                <span class="chip-emoji">💬</span>
+                                <span class="chip-text">"Hello! How are you doing today? Let's practice American English pronunciation!"</span>
+                            </button>
+                            <button type="button" class="phrase-chip" data-phrase="Schedule, water, neighborhood, elevator, and whatever.">
+                                <span class="chip-emoji">🏢</span>
+                                <span class="chip-text">"Schedule, water, neighborhood, elevator, and whatever."</span>
+                            </button>
+                            <button type="button" class="phrase-chip" data-phrase="The quick brown fox jumps over the lazy dog.">
+                                <span class="chip-emoji">🦊</span>
+                                <span class="chip-text">"The quick brown fox jumps over the lazy dog."</span>
+                            </button>
+                            <button type="button" class="phrase-chip" data-phrase="Peter Piper picked a peck of pickled peppers. How many pickled peppers did Peter Piper pick?">
+                                <span class="chip-emoji">⚡</span>
+                                <span class="chip-text">"Peter Piper picked a peck of pickled peppers..." (Desafio!)</span>
+                            </button>
+                        </div>
+
+                        <div id="chips-grid-pt" class="chips-grid" style="display: none;">
+                            <button type="button" class="phrase-chip" data-phrase="Olá! Bem-vindo ao módulo de síntese de voz e leitura inteligente.">
+                                <span class="chip-emoji">💬</span>
+                                <span class="chip-text">"Olá! Bem-vindo ao módulo de síntese de voz e leitura inteligente."</span>
+                            </button>
+                            <button type="button" class="phrase-chip" data-phrase="O algoritmo selecionou automaticamente a melhor voz neural disponível no seu aparelho.">
+                                <span class="chip-emoji">🤖</span>
+                                <span class="chip-text">"O algoritmo selecionou automaticamente a melhor voz neural disponível..."</span>
+                            </button>
+                            <button type="button" class="phrase-chip" data-phrase="A inteligência artificial transforma a experiência de aprendizado de idiomas com pronúncia nativa e natural.">
+                                <span class="chip-emoji">🇧🇷</span>
+                                <span class="chip-text">"A inteligência artificial transforma a experiência de aprendizado..."</span>
+                            </button>
+                            <button type="button" class="phrase-chip" data-phrase="O rato roeu a roupa do rei de Roma e a rainha com raiva resolveu remendar.">
+                                <span class="chip-emoji">🌪️</span>
+                                <span class="chip-text">"O rato roeu a roupa do rei de Roma..." (Trava-línguas!)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- FOOTER / DIAGNÓSTICOS DO MÓDULO -->
+        <footer class="app-footer">
+            <div class="footer-stats">
+                <div class="stat-item">
+                    <span>⏱️ Tempo de Leitura:</span>
+                    <span id="stat-timer" class="stat-val">00:00</span>
+                </div>
+                <div class="stat-item">
+                    <span>⚡ Engine:</span>
+                    <span id="stat-engine" class="stat-val">Web Speech API (Client-Side)</span>
+                </div>
+                <div class="stat-item">
+                    <span>💰 Custo:</span>
+                    <span style="color: var(--emerald-primary); font-weight: 700;">$0.00 (Zero)</span>
+                </div>
+            </div>
+            <div>
+                <span>VocalReader Module v2.0.0 • 100% Client-Side & GitHub Pages Ready</span>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- Biblioteca MP3 Encoder (lamejs - JavaScript puro, Custo Zero) -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+
+    <!-- Scripts carregados em ordem: Motor de Voz primeiro, depois o Controlador da Interface -->
+    <script src="VocalReaderModule.js" defer></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
